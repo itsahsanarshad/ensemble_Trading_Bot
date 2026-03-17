@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Bot Control Center</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        body {
+            background-color: #0f172a;
+            color: #e2e8f0;
+        }
+        .anim-spin {
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 font-sans antialiased">
+
+    <!-- Header -->
+    <header class="flex justify-between items-center mb-8 glass-panel p-4 md:p-6 rounded-2xl shadow-xl">
+        <div class="flex items-center space-x-4">
+            <div class="h-12 w-12 rounded-full bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/50">
+                <i class="fa-solid fa-robot text-2xl text-white"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-white tracking-tight">Trading Bot Monitor</h1>
+                <div class="flex items-center mt-1 space-x-2 text-sm">
+                    <span id="status-dot" class="h-2.5 w-2.5 rounded-full bg-green-500"></span>
+                    <span id="status-text" class="text-gray-400">System Online</span>
+                    <span class="text-gray-600">|</span>
+                    <span id="mode-badge" class="px-2 py-0.5 rounded text-xs font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30">LOADING</span>
+                    <span class="text-gray-600">|</span>
+                    <span id="regime-badge" class="px-2 py-0.5 rounded text-xs font-semibold bg-gray-500/20 text-gray-400 border border-gray-500/30">Market: ?</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+            <div class="text-right hidden md:block">
+                <p class="text-xs text-gray-400">Last Synced</p>
+                <p id="last-sync" class="text-sm font-mono font-medium text-blue-400">Never</p>
+            </div>
+            <button onclick="openResetModal()" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/50 rounded-lg transition-all text-sm font-semibold flex items-center shadow-lg shadow-red-900/20">
+                <i class="fa-solid fa-power-off mr-2"></i> Control Panel
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+        
+        <!-- Risk & Portfolio (Spans 3 Columns) -->
+        <div class="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+            <!-- Total Capital -->
+            <div class="glass-panel p-5 rounded-xl flex flex-col justify-between shadow-lg relative overflow-hidden">
+                <div class="absolute -right-4 -top-4 text-blue-500/10">
+                    <i class="fa-solid fa-wallet text-6xl"></i>
+                </div>
+                <h3 class="text-gray-400 text-sm font-medium">Total Capital</h3>
+                <p id="total-capital" class="text-3xl font-bold font-mono text-white mt-2">$0.00</p>
+            </div>
+            
+            <!-- Exposure -->
+            <div class="glass-panel p-5 rounded-xl flex flex-col justify-between shadow-lg relative overflow-hidden">
+                <div class="absolute -right-4 -top-4 text-orange-500/10">
+                    <i class="fa-solid fa-chart-pie text-6xl"></i>
+                </div>
+                <h3 class="text-gray-400 text-sm font-medium">Active Exposure</h3>
+                <p id="total-exposure" class="text-3xl font-bold font-mono text-orange-400 mt-2">$0.00</p>
+                <p id="exposure-pct" class="text-xs text-gray-500 mt-1">0% of portfolio</p>
+            </div>
+            
+            <!-- Unrealized P&L -->
+            <div class="glass-panel p-5 rounded-xl flex flex-col justify-between shadow-lg relative overflow-hidden">
+                <div class="absolute -right-4 -top-4 text-blue-500/10">
+                    <i class="fa-solid fa-hourglass-half text-6xl"></i>
+                </div>
+                <h3 class="text-gray-400 text-sm font-medium">Unrealized P&L</h3>
+                <p id="unrealized-pnl" class="text-3xl font-bold font-mono text-gray-400 mt-2">$0.00</p>
+                <p id="unrealized-pnl-pct" class="text-xs text-gray-500 mt-1">0.00% open positions</p>
+            </div>
+
+            <!-- Realized P&L (Daily / All-Time toggle) -->
+            <div class="glass-panel p-5 rounded-xl flex flex-col justify-between shadow-lg relative overflow-hidden">
+                <div class="absolute -right-4 -top-4 text-green-500/10">
+                    <i class="fa-solid fa-sack-dollar text-6xl"></i>
+                </div>
+                <div class="flex items-center justify-between">
+                    <h3 class="text-gray-400 text-sm font-medium">Realized P&L</h3>
+                    <button id="realized-toggle-btn" onclick="toggleRealizedMode()"
+                        class="text-[10px] font-mono px-2 py-0.5 rounded border border-gray-600 text-gray-400 hover:border-blue-500 hover:text-blue-400 transition-colors">
+                        Daily
+                    </button>
+                </div>
+                <p id="realized-pnl" class="text-3xl font-bold font-mono text-gray-400 mt-2">$0.00</p>
+                <p id="realized-pnl-sub" class="text-xs text-gray-500 mt-1">today's closed trades</p>
+            </div>
+
+            <!-- Total Risk -->
+            <div class="glass-panel p-5 rounded-xl flex flex-col justify-between shadow-lg relative overflow-hidden">
+                <div class="absolute -right-4 -top-4 text-red-500/10">
+                    <i class="fa-solid fa-shield-halved text-6xl"></i>
+                </div>
+                <h3 class="text-gray-400 text-sm font-medium">Value at Risk</h3>
+                <p id="total-risk" class="text-3xl font-bold font-mono text-white mt-2">$0.00</p>
+                <div id="risk-warning" class="hidden mt-1 px-2 py-0.5 bg-red-500/20 border border-red-500/50 rounded text-xs text-red-400 w-max">
+                    <i class="fa-solid fa-triangle-exclamation mr-1"></i> PAUSED
+                </div>
+            </div>
+        </div>
+        
+        <!-- System Health (1 Column) -->
+        <div class="glass-panel p-5 rounded-xl shadow-lg flex flex-col">
+            <h3 class="text-gray-300 font-semibold mb-4 border-b border-gray-700 pb-2"><i class="fa-solid fa-server mr-2 text-blue-400"></i>Diagnostics</h3>
+            <div class="space-y-4 flex-grow">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-400">Open Trades</span>
+                    <span id="open-trades-count" class="font-mono text-white bg-gray-800 px-2 rounded">0</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-400">Paper Balance</span>
+                    <span id="paper-bal-status" class="font-mono text-white bg-gray-800 px-2 rounded">LIVE</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-400">Update Polling</span>
+                    <span class="font-mono text-green-400 text-sm"><i class="fa-solid fa-bolt mr-1"></i>Active</span>
+                </div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-700 hidden" id="refresh-indicator">
+                <p class="text-xs text-center text-blue-400"><i class="fa-solid fa-circle-notch anim-spin mr-1"></i> Fetching new data...</p>
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- Tables Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Open Positions -->
+        <div class="glass-panel rounded-xl shadow-lg border border-gray-700/50 flex flex-col h-[500px]">
+            <div class="p-4 border-b border-gray-700/50 flex justify-between items-center bg-gray-800/30">
+                <h3 class="font-semibold text-white"><i class="fa-solid fa-crosshairs text-orange-400 mr-2"></i>Active Positions</h3>
+            </div>
+            <div class="overflow-y-auto flex-grow p-0 custom-scrollbar">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead class="bg-gray-900/60 sticky top-0 text-gray-400 text-xs uppercase font-semibold">
+                        <tr>
+                            <th class="p-3 pl-4">Asset</th>
+                            <th class="p-3">Entry</th>
+                            <th class="p-3">Target</th>
+                            <th class="p-3">Size/Tier</th>
+                            <th class="p-3 pr-4 text-right">Live P&L</th>
+                        </tr>
+                    </thead>
+                    <tbody id="positions-body" class="divide-y divide-gray-700/50">
+                        <!-- Populated via JS -->
+                    </tbody>
+                </table>
+                <div id="positions-empty" class="hidden flex-col items-center justify-center h-48 text-gray-500">
+                    <i class="fa-solid fa-bed text-3xl mb-2"></i>
+                    <p>No active trades currently open.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trade History -->
+        <div class="glass-panel rounded-xl shadow-lg border border-gray-700/50 flex flex-col h-[500px]">
+            <div class="p-4 border-b border-gray-700/50 flex justify-between items-center bg-gray-800/30">
+                <h3 class="font-semibold text-white"><i class="fa-solid fa-book text-blue-400 mr-2"></i>Recent History</h3>
+            </div>
+            <div class="overflow-y-auto flex-grow p-0 custom-scrollbar">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead class="bg-gray-900/60 sticky top-0 text-gray-400 text-xs uppercase font-semibold">
+                        <tr>
+                            <th class="p-3 pl-4">Asset</th>
+                            <th class="p-3">Reason</th>
+                            <th class="p-3 pr-4 text-right">Profit / Loss</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-body" class="divide-y divide-gray-700/50">
+                        <!-- Populated via JS -->
+                    </tbody>
+                </table>
+                <div id="history-empty" class="hidden flex-col items-center justify-center h-48 text-gray-500">
+                    <i class="fa-solid fa-ghost text-3xl mb-2"></i>
+                    <p>No trade history available yet.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Model Performance Panel (Full Width) -->
+    <div class="mt-6">
+        <div class="glass-panel rounded-xl shadow-lg border border-gray-700/50">
+            <div class="p-4 border-b border-gray-700/50 flex justify-between items-center bg-gray-800/30">
+                <h3 class="font-semibold text-white"><i class="fa-solid fa-brain text-pink-400 mr-2"></i>Model Accuracy Leaderboard <span class="text-xs text-gray-500 font-normal ml-2">last 30 days • updates on trade close</span></h3>
+                <span id="model-perf-window" class="text-xs font-mono text-gray-500"></span>
+            </div>
+            <div class="p-4 grid grid-cols-1 md:grid-cols-3 gap-4" id="model-perf-grid">
+                <!-- TA -->
+                <div class="bg-gray-900/50 rounded-xl p-4 border border-blue-500/20">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center space-x-2">
+                            <span class="h-8 w-8 rounded-lg bg-blue-500/20 flex items-center justify-center"><i class="fa-solid fa-chart-line text-blue-400 text-sm"></i></span>
+                            <div>
+                                <p class="text-white font-semibold text-sm">Technical Analysis</p>
+                                <p class="text-gray-500 text-xs">TA Model</p>
+                            </div>
+                        </div>
+                        <span id="ta-rank-badge" class="text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-500">—</span>
+                    </div>
+                    <p id="ta-accuracy" class="text-3xl font-bold font-mono text-gray-400">—</p>
+                    <p class="text-xs text-gray-500 mt-1">Accuracy (BUY → WIN)</p>
+                    <div class="mt-3 pt-3 border-t border-gray-700/50 grid grid-cols-3 gap-2 text-center text-xs">
+                        <div><p id="ta-preds" class="font-mono text-gray-300">—</p><p class="text-gray-600">Signals</p></div>
+                        <div><p id="ta-wins" class="font-mono text-green-400">—</p><p class="text-gray-600">Wins</p></div>
+                        <div><p id="ta-pnl" class="font-mono text-gray-300">—</p><p class="text-gray-600">Avg P&L</p></div>
+                    </div>
+                </div>
+                <!-- ML -->
+                <div class="bg-gray-900/50 rounded-xl p-4 border border-purple-500/20">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center space-x-2">
+                            <span class="h-8 w-8 rounded-lg bg-purple-500/20 flex items-center justify-center"><i class="fa-solid fa-robot text-purple-400 text-sm"></i></span>
+                            <div>
+                                <p class="text-white font-semibold text-sm">ML Ensemble</p>
+                                <p class="text-gray-500 text-xs">XGBoost + Features</p>
+                            </div>
+                        </div>
+                        <span id="ml-rank-badge" class="text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-500">—</span>
+                    </div>
+                    <p id="ml-accuracy" class="text-3xl font-bold font-mono text-gray-400">—</p>
+                    <p class="text-xs text-gray-500 mt-1">Accuracy (BUY → WIN)</p>
+                    <div class="mt-3 pt-3 border-t border-gray-700/50 grid grid-cols-3 gap-2 text-center text-xs">
+                        <div><p id="ml-preds" class="font-mono text-gray-300">—</p><p class="text-gray-600">Signals</p></div>
+                        <div><p id="ml-wins" class="font-mono text-green-400">—</p><p class="text-gray-600">Wins</p></div>
+                        <div><p id="ml-pnl" class="font-mono text-gray-300">—</p><p class="text-gray-600">Avg P&L</p></div>
+                    </div>
+                </div>
+                <!-- TCN -->
+                <div class="bg-gray-900/50 rounded-xl p-4 border border-orange-500/20">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center space-x-2">
+                            <span class="h-8 w-8 rounded-lg bg-orange-500/20 flex items-center justify-center"><i class="fa-solid fa-microchip text-orange-400 text-sm"></i></span>
+                            <div>
+                                <p class="text-white font-semibold text-sm">TCN Deep Learning</p>
+                                <p class="text-gray-500 text-xs">Temporal Conv Net</p>
+                            </div>
+                        </div>
+                        <span id="tcn-rank-badge" class="text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-500">—</span>
+                    </div>
+                    <p id="tcn-accuracy" class="text-3xl font-bold font-mono text-gray-400">—</p>
+                    <p class="text-xs text-gray-500 mt-1">Accuracy (BUY → WIN)</p>
+                    <div class="mt-3 pt-3 border-t border-gray-700/50 grid grid-cols-3 gap-2 text-center text-xs">
+                        <div><p id="tcn-preds" class="font-mono text-gray-300">—</p><p class="text-gray-600">Signals</p></div>
+                        <div><p id="tcn-wins" class="font-mono text-green-400">—</p><p class="text-gray-600">Wins</p></div>
+                        <div><p id="tcn-pnl" class="font-mono text-gray-300">—</p><p class="text-gray-600">Avg P&L</p></div>
+                    </div>
+                </div>
+            </div>
+            <p id="model-perf-note" class="hidden text-center text-gray-600 text-xs pb-4">Accuracy populates once closed trades backfill prediction outcomes.</p>
+        </div>
+    </div>
+
+    <!-- Live Scans (Full Width) -->
+    <div class="mt-6 mb-8">
+        <div class="glass-panel rounded-xl shadow-lg border border-gray-700/50 flex flex-col h-[400px]">
+            <div class="p-4 border-b border-gray-700/50 flex justify-between items-center bg-gray-800/30">
+                <h3 class="font-semibold text-white"><i class="fa-solid fa-satellite-dish text-purple-400 mr-2"></i>Live Market Scans</h3>
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs font-mono bg-blue-500/20 text-blue-400 px-2 rounded border border-blue-500/30">TA</span>
+                    <span class="text-xs font-mono bg-purple-500/20 text-purple-400 px-2 rounded border border-purple-500/30">ML</span>
+                    <span class="text-xs font-mono bg-orange-500/20 text-orange-400 px-2 rounded border border-orange-500/30">TCN</span>
+                    <span class="text-xs text-gray-500 ml-2 border-l border-gray-600 pl-2">Evaluates hourly</span>
+                </div>
+            </div>
+            <div class="overflow-y-auto flex-grow p-0 custom-scrollbar">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead class="bg-gray-900/60 sticky top-0 text-gray-400 text-xs uppercase font-semibold border-b border-gray-700/50 z-10">
+                        <tr>
+                            <th class="p-3 pl-5 w-32">Asset</th>
+                            <th class="p-3 w-24">Signal</th>
+                            <th class="p-3 w-16">Tier</th>
+                            <th class="p-3 w-32">Agg. Conf.</th>
+                            <th class="p-3 w-40">Confidence Split</th>
+                            <th class="p-3 pr-5">Primary Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scans-body" class="divide-y divide-gray-800/80 bg-gray-900/20 text-gray-300">
+                        <!-- Populated via JS -->
+                    </tbody>
+                </table>
+                <div id="scans-empty" class="hidden flex-col items-center justify-center h-48 text-gray-500">
+                    <i class="fa-solid fa-hourglass-empty text-3xl mb-2"></i>
+                    <p>Executing first scan routine...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- CONTROL PANEL MODAL -->
+    <div id="reset-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="glass-panel p-6 md:p-8 rounded-2xl max-w-md w-full border border-red-500/30 shadow-2xl shadow-red-900/20 transform transition-all">
+            
+            <div class="flex items-center text-red-500 mb-4">
+                <i class="fa-solid fa-triangle-exclamation text-3xl mr-3"></i>
+                <h2 class="text-2xl font-bold text-white">Zone Control</h2>
+            </div>
+            
+            <p class="text-gray-300 text-sm mb-6 pb-4 border-b border-gray-700">
+                Warning: Triggering a hard reset will instantly terminate all currently open paper trades and permanently wipe your P&L history.
+            </p>
+
+            <label class="block text-sm font-medium text-gray-400 mb-1">Inject New Paper Balance ($)</label>
+            <div class="relative mb-6">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span class="text-gray-500 font-mono">$</span>
+                </div>
+                <input type="number" id="new-balance-input" value="10000" class="w-full bg-gray-900 border border-gray-600 rounded-lg py-3 pl-8 pr-4 text-white font-mono focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors">
+            </div>
+
+            <div class="flex justify-end space-x-3 mt-8">
+                <button onclick="closeResetModal()" class="px-5 py-2.5 rounded-lg text-sm font-semibold text-gray-300 hover:bg-gray-800 border border-gray-600 transition-colors">
+                    Cancel
+                </button>
+                <button onclick="executeReset()" id="reset-btn" class="px-5 py-2.5 rounded-lg text-sm font-bold bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/30 transition-all flex items-center">
+                    <i class="fa-solid fa-skull mr-2"></i> WIPE & RESTART
+                </button>
+            </div>
+            
+            <p id="reset-error" class="text-red-400 text-xs mt-4 text-center hidden"></p>
+        </div>
+    </div>
+
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+    </style>
+
+    <script>
+        // Formats
+        const fmtMoney = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+        const fmtPct = new Intl.NumberFormat('en-US', { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 3 });
+        
+        // Dynamic precision for crypto prices
+        function formatPrice(val) {
+            if (val === undefined || val === null) return 'N/A';
+            const absVal = Math.abs(val);
+            let maxDecimals = 2;
+            if (absVal < 0.01) maxDecimals = 8;
+            else if (absVal < 1) maxDecimals = 6;
+            else if (absVal < 50) maxDecimals = 4;
+            else if (absVal < 1000) maxDecimals = 3;
+            
+            return val.toLocaleString('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: maxDecimals
+            });
+        }
+        
+        const POLLING_INTERVAL = 15000; // 15 seconds
+
+        async function fetchAPI(endpoint) {
+            try {
+                const res = await fetch(endpoint);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return await res.json();
+            } catch (err) {
+                console.error(`Fetch ${endpoint} failed:`, err);
+                return null;
+            }
+        }
+
+        function getColorByValue(val, inverse = false) {
+            if (val > 0) return inverse ? 'text-red-400' : 'text-green-400';
+            if (val < 0) return inverse ? 'text-green-400' : 'text-red-400';
+            return 'text-gray-400';
+        }
+
+        // Tracks which mode the Realized P&L card is showing
+        let realizedMode = 'daily'; // 'daily' | 'alltime'
+
+        function renderRealizedPnl() {
+            const rEl = document.getElementById('realized-pnl');
+            const rSub = document.getElementById('realized-pnl-sub');
+            const rBtn = document.getElementById('realized-toggle-btn');
+            if (!rEl) return;
+            const val = parseFloat(realizedMode === 'daily' ? (rEl.dataset.daily || 0) : (rEl.dataset.alltime || 0));
+            rEl.innerText = (val >= 0 ? '+' : '') + fmtMoney.format(val);
+            rEl.className = `text-3xl font-bold font-mono mt-2 ${getColorByValue(val)}`;
+            if (realizedMode === 'daily') {
+                rSub.innerText = "today's closed trades";
+                rBtn.innerText = 'Daily';
+            } else {
+                rSub.innerText = "all-time closed trades";
+                rBtn.innerText = 'All Time';
+            }
+        }
+
+        function toggleRealizedMode() {
+            realizedMode = (realizedMode === 'daily') ? 'alltime' : 'daily';
+            renderRealizedPnl();
+        }
+
+        async function updateDashboard() {
+
+            document.getElementById('refresh-indicator').classList.remove('hidden');
+            
+            // 1. Status
+            const status = await fetchAPI('/api/status');
+            if (status) {
+                document.getElementById('status-dot').className = `h-2.5 w-2.5 rounded-full ${status.status === 'online' ? 'bg-green-500' : 'bg-red-500'}`;
+                
+                const mBadge = document.getElementById('mode-badge');
+                if (status.mode === 'PAPER') {
+                    mBadge.className = "px-2 py-0.5 rounded text-xs font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30";
+                    mBadge.innerText = "PAPER TRADING";
+                    document.getElementById('paper-bal-status').innerText = fmtMoney.format(status.paper_balance || 0);
+                } else {
+                    mBadge.className = "px-2 py-0.5 rounded text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30";
+                    mBadge.innerText = "LIVE DEPLOYED";
+                    document.getElementById('paper-bal-status').innerText = "LIVE";
+                }
+
+                document.getElementById('regime-badge').innerText = `Market: ${status.regime}`;
+                const now = new Date();
+                document.getElementById('last-sync').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+            }
+
+            // 2. Portfolio
+            const port = await fetchAPI('/api/portfolio');
+            if (port) {
+                const cap = port.capital || 0;
+                const exp = port.total_exposure || 0;
+                document.getElementById('total-capital').innerText = fmtMoney.format(cap);
+                document.getElementById('total-exposure').innerText = fmtMoney.format(exp);
+                document.getElementById('exposure-pct').innerText = cap > 0 ? `${((exp/cap)*100).toFixed(2)}% of portfolio` : "0%";
+                document.getElementById('total-risk').innerText = fmtMoney.format(port.total_risk || 0);
+                
+                if (port.risk_limit_reached) {
+                    document.getElementById('risk-warning').classList.remove('hidden');
+                } else {
+                    document.getElementById('risk-warning').classList.add('hidden');
+                }
+                
+                document.getElementById('open-trades-count').innerText = port.open_positions_count || 0;
+
+                // --- Unrealized P&L ---
+                const uPnl = port.unrealized_pnl_usd || 0;
+                const uPct = port.unrealized_pnl_pct || 0;
+                const uEl = document.getElementById('unrealized-pnl');
+                const uPctEl = document.getElementById('unrealized-pnl-pct');
+                uEl.innerText = (uPnl >= 0 ? '+' : '') + fmtMoney.format(uPnl);
+                uEl.className = `text-3xl font-bold font-mono mt-2 ${getColorByValue(uPnl)}`;
+                uPctEl.innerText = `${uPct >= 0 ? '+' : ''}${uPct.toFixed(2)}% open positions`;
+                uPctEl.className = `text-xs mt-1 ${getColorByValue(uPnl)}`;
+
+                // --- Realized P&L (store both modes in data attrs, render current) ---
+                const rEl = document.getElementById('realized-pnl');
+                rEl.dataset.daily = port.realized_pnl_today ?? 0;
+                rEl.dataset.alltime = port.realized_pnl_alltime ?? 0;
+                renderRealizedPnl();
+            }
+
+            // 3. Positions
+            const pos = await fetchAPI('/api/positions');
+            const pBody = document.getElementById('positions-body');
+            const pEmpty = document.getElementById('positions-empty');
+            
+            if (pos && pos.length > 0) {
+                pEmpty.classList.add('hidden');
+                pBody.innerHTML = '';
+                
+                // Fetch real-time prices from Binance API for accurate P&L
+                const priceRes = await fetch('https://api.binance.com/api/v3/ticker/price');
+                const priceData = await priceRes.json();
+                const currentPrices = {};
+                priceData.forEach(p => { currentPrices[p.symbol] = parseFloat(p.price); });
+
+                pos.forEach(p => {
+                    // Try to grab live binance price. If API limits are hit, fallback to entry.
+                    const livePrice = currentPrices[p.coin] || p.entry_price;
+                    const pnlPct = (livePrice - p.entry_price) / p.entry_price;
+                    
+                    const tp1 = p.take_profit_1 ? formatPrice(p.take_profit_1) : 'N/A';
+                    const target = p.take_profit ? formatPrice(p.take_profit) : 'N/A';
+                    const stopLoss = p.stop_loss ? formatPrice(p.stop_loss) : 'N/A';
+                    
+                    pBody.innerHTML += `
+                        <tr class="hover:bg-gray-800/80 transition-colors cursor-default">
+                            <td class="p-3 pl-4 font-semibold text-white">
+                                <span class="bg-gray-800 border border-gray-700 rounded px-2 py-0.5">${p.coin}</span>
+                            </td>
+                            <td class="p-3 font-mono text-gray-300">
+                                <div class="flex flex-col">
+                                    <span>${formatPrice(p.entry_price)}</span>
+                                    <span class="text-[10px] text-gray-500">Live: ${formatPrice(livePrice)}</span>
+                                </div>
+                            </td>
+                            <td class="p-3 font-mono text-xs text-gray-400">
+                                <div class="flex flex-col">
+                                    <span class="text-green-400 opacity-80">TP1: ${tp1}</span>
+                                    <span class="text-green-400">TP2: ${target}</span>
+                                    <span class="text-red-400 mt-0.5">SL: ${stopLoss}</span>
+                                </div>
+                            </td>
+                            <td class="p-3 font-mono text-gray-300">
+                                <div class="flex flex-col">
+                                    <span>${fmtMoney.format(p.position_size)}</span>
+                                    <span class="text-[10px] text-gray-500">Tier ${p.tier}</span>
+                                </div>
+                            </td>
+                            <td class="p-3 pr-4 text-right font-mono font-bold ${getColorByValue(pnlPct)}">
+                                ${fmtPct.format(pnlPct)}
+                            </td>
+                        </tr>
+                    `;
+                });
+            } else {
+                pBody.innerHTML = '';
+                pEmpty.classList.remove('hidden');
+                document.getElementById('daily-pnl').innerText = "$0.00";
+                document.getElementById('pnl-pct').innerText = "0.00%";
+            }
+
+            // 4. History
+            const hist = await fetchAPI('/api/history?limit=10');
+            const hBody = document.getElementById('history-body');
+            const hEmpty = document.getElementById('history-empty');
+
+            if (hist && hist.length > 0) {
+                hEmpty.classList.add('hidden');
+                hBody.innerHTML = '';
+                hist.forEach(h => {
+                    const pnlClass = h.pnl_usd >= 0 ? 'text-green-400' : 'text-red-400';
+                    const sign = h.pnl_usd >= 0 ? '+' : '';
+                    hBody.innerHTML += `
+                        <tr class="hover:bg-gray-800/50 transition-colors">
+                            <td class="p-3 pl-4 font-semibold text-gray-300">
+                                ${h.coin}
+                                <div class="text-[10px] text-gray-500 font-mono">${h.entry_time.split('T')[1].substring(0,5)} -> ${h.exit_time.split('T')[1].substring(0,5)}</div>
+                            </td>
+                            <td class="p-3 text-xs text-gray-400 lowercase italic">${h.exit_reason || "unknown"}</td>
+                            <td class="p-3 pr-4 text-right">
+                                <span class="font-mono font-bold ${pnlClass}">${sign}${fmtMoney.format(h.pnl_usd)}</span>
+                                <div class="text-[10px] ${pnlClass} opacity-80">${sign}${(h.pnl_percent).toFixed(3)}%</div>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } else {
+                hBody.innerHTML = '';
+                hEmpty.classList.remove('hidden');
+            }
+
+            // 5. Live Scans
+            const scans = await fetchAPI('/api/signals');
+            const sBody = document.getElementById('scans-body');
+            const sEmpty = document.getElementById('scans-empty');
+
+            if (scans && scans.length > 0) {
+                sEmpty.classList.add('hidden');
+                sBody.innerHTML = '';
+                scans.forEach(s => {
+                    const signalColor = s.signal === 'buy' ? 'text-green-400' : (s.signal === 'sell' ? 'text-red-400' : 'text-gray-500');
+                    const reason = s.reasons && s.reasons.length > 0 ? s.reasons[0] : 'Scanning metrics...';
+                    sBody.innerHTML += `
+                        <tr class="hover:bg-gray-800/80 transition-colors cursor-default">
+                            <td class="p-3 pl-5 font-bold text-white tracking-wide">${s.symbol}</td>
+                            <td class="p-3 font-bold uppercase tracking-wider text-xs ${signalColor}">${s.signal}</td>
+                            <td class="p-3 font-mono text-gray-500 text-xs">T${s.tier}</td>
+                            <td class="p-3 font-mono text-gray-300">
+                                <div class="flex items-center">
+                                    <span class="mr-2">${(s.confidence * 100).toFixed(1)}%</span>
+                                    <div class="h-1.5 w-12 bg-gray-800 rounded-full overflow-hidden">
+                                        <div class="h-full bg-blue-500" style="width: ${s.confidence * 100}%"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="p-3 font-mono text-[11px] text-gray-500 font-medium">
+                                <span class="text-blue-400">${(s.ta_conf*100).toFixed(1)}%</span> / 
+                                <span class="text-purple-400">${(s.ml_conf*100).toFixed(1)}%</span> / 
+                                <span class="text-orange-400">${(s.tcn_conf*100).toFixed(1)}%</span>
+                            </td>
+                            <td class="p-3 pr-5 text-xs italic text-gray-400 truncate max-w-[200px]" title="${reason}">${reason}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                if (sBody) sBody.innerHTML = '';
+                if (sEmpty) sEmpty.classList.remove('hidden');
+            }
+
+            // 6. Model Performance Leaderboard
+            const perfData = await fetchAPI('/api/model-performance?days=30');
+            if (perfData && perfData.models) {
+                const models = perfData.models;
+                const rankLabels = ['🥇 Best', '🥈 2nd', '🥉 3rd'];
+                const rankColors = ['border-yellow-500/30 text-yellow-400', 'border-gray-500/30 text-gray-400', 'border-orange-700/30 text-orange-700'];
+                
+                // Sort by accuracy to assign rank
+                const sorted = ['ta', 'ml', 'tcn'].filter(m => models[m]?.accuracy_pct !== null && models[m]?.accuracy_pct !== undefined);
+                sorted.sort((a, b) => (models[b]?.accuracy_pct || 0) - (models[a]?.accuracy_pct || 0));
+                const ranks = {};
+                sorted.forEach((key, i) => ranks[key] = i);
+                
+                const hasData = sorted.length > 0;
+                document.getElementById('model-perf-note').classList.toggle('hidden', hasData);
+                
+                ['ta', 'ml', 'tcn'].forEach(model => {
+                    const m = models[model];
+                    if (!m) return;
+                    const rank = ranks[model];
+                    const badge = document.getElementById(`${model}-rank-badge`);
+                    const accEl = document.getElementById(`${model}-accuracy`);
+                    
+                    if (m.accuracy_pct !== null && m.accuracy_pct !== undefined) {
+                        accEl.innerText = m.accuracy_pct.toFixed(1) + '%';
+                        const color = m.accuracy_pct >= 60 ? 'text-green-400' : m.accuracy_pct >= 45 ? 'text-yellow-400' : 'text-red-400';
+                        accEl.className = `text-3xl font-bold font-mono ${color}`;
+                        if (rank !== undefined && rank < 3) {
+                            badge.innerText = rankLabels[rank];
+                            badge.className = `text-xs px-2 py-0.5 rounded border ${rankColors[rank]}`;
+                        } else {
+                            badge.innerText = '—'; badge.className = 'text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-500';
+                        }
+                    } else {
+                        accEl.innerText = '—';
+                        accEl.className = 'text-3xl font-bold font-mono text-gray-400';
+                        badge.innerText = 'No data'; badge.className = 'text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-500';
+                    }
+                    
+                    document.getElementById(`${model}-preds`).innerText = m.buy_signals ?? '—';
+                    document.getElementById(`${model}-wins`).innerText = m.wins ?? '—';
+                    const pnlEl = document.getElementById(`${model}-pnl`);
+                    if (m.avg_pnl_pct !== null && m.avg_pnl_pct !== undefined) {
+                        pnlEl.innerText = (m.avg_pnl_pct >= 0 ? '+' : '') + m.avg_pnl_pct.toFixed(2) + '%';
+                        pnlEl.className = `font-mono ${m.avg_pnl_pct >= 0 ? 'text-green-400' : 'text-red-400'}`;
+                    } else {
+                        pnlEl.innerText = '—'; pnlEl.className = 'font-mono text-gray-300';
+                    }
+                });
+            }
+
+            setTimeout(() => {
+                document.getElementById('refresh-indicator').classList.add('hidden');
+            }, 500);
+        }
+
+
+        // Modal Logic
+        function openResetModal() {
+            document.getElementById('reset-modal').classList.remove('hidden');
+            document.getElementById('reset-error').classList.add('hidden');
+        }
+
+        function closeResetModal() {
+            document.getElementById('reset-modal').classList.add('hidden');
+        }
+
+        async function executeReset() {
+            const btn = document.getElementById('reset-btn');
+            const err = document.getElementById('reset-error');
+            const balance = parseFloat(document.getElementById('new-balance-input').value);
+            
+            if (isNaN(balance) || balance < 100) {
+                err.innerText = "Please enter a valid balance over $100.";
+                err.classList.remove('hidden');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch anim-spin mr-2"></i> WIPING...';
+
+            try {
+                const res = await fetch('/api/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_balance: balance })
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.detail || `Server Error ${res.status}`);
+                }
+
+                // Success
+                btn.innerHTML = '<i class="fa-solid fa-check mr-2"></i> DONE';
+                btn.classList.add('bg-green-600');
+                btn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                
+                setTimeout(() => {
+                    closeResetModal();
+                    // Reset styling
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-skull mr-2"></i> WIPE & RESTART';
+                    btn.classList.remove('bg-green-600');
+                    btn.classList.add('bg-red-600', 'hover:bg-red-700');
+                    updateDashboard();
+                }, 1500);
+
+            } catch (error) {
+                err.innerText = error.message;
+                err.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-skull mr-2"></i> WIPE & RESTART';
+            }
+        }
+
+        // Init
+        updateDashboard();
+        setInterval(updateDashboard, POLLING_INTERVAL);
+
+    </script>
+</body>
+</html>
