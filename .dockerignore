@@ -1,0 +1,41 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Project specific
+logs/
+data/*.db
+data/*.json
+models/*.joblib
+models/*.h5
+models/*.keras
+catboost_info/
+
+# Environments
+.env
+.env.example
+
+# OS
+.DS_Store
+Thumbs.db
