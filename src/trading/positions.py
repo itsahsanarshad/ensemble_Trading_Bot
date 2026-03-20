@@ -66,7 +66,8 @@ class PositionManager:
     def __init__(self):
         """Initialize position manager."""
         self.positions: Dict[str, Position] = {}
-        self._load_open_positions()
+        # Delay loading until after database is guaranteed to be ready
+        # This is now handled by the bot's setup sequence
     
     def _load_open_positions(self) -> None:
         """Load open positions from database with deduplication by coin."""

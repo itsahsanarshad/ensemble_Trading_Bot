@@ -375,12 +375,17 @@
         
         const POLLING_INTERVAL = 15000; // 15 seconds
 
-        async function fetchAPI(endpoint) {
+        async function fetchAPI(endpoint, timeout = 10000) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+            
             try {
-                const res = await fetch(endpoint);
+                const res = await fetch(endpoint, { signal: controller.signal });
+                clearTimeout(id);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 return await res.json();
             } catch (err) {
+                clearTimeout(id);
                 console.error(`Fetch ${endpoint} failed:`, err);
                 return null;
             }
@@ -418,248 +423,250 @@
         }
 
         async function updateDashboard() {
-
-            document.getElementById('refresh-indicator').classList.remove('hidden');
+            const refreshIndicator = document.getElementById('refresh-indicator');
+            refreshIndicator.classList.remove('hidden');
             
-            // 1. Status
-            const status = await fetchAPI('/api/status');
-            if (status) {
-                document.getElementById('status-dot').className = `h-2.5 w-2.5 rounded-full ${status.status === 'online' ? 'bg-green-500' : 'bg-red-500'}`;
-                
-                const mBadge = document.getElementById('mode-badge');
-                if (status.mode === 'PAPER') {
-                    mBadge.className = "px-2 py-0.5 rounded text-xs font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30";
-                    mBadge.innerText = "PAPER TRADING";
-                    document.getElementById('paper-bal-status').innerText = fmtMoney.format(status.paper_balance || 0);
-                } else {
-                    mBadge.className = "px-2 py-0.5 rounded text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30";
-                    mBadge.innerText = "LIVE DEPLOYED";
-                    document.getElementById('paper-bal-status').innerText = "LIVE";
+            try {
+                // 1. Status
+                const status = await fetchAPI('/api/status');
+                if (status) {
+                    document.getElementById('status-dot').className = `h-2.5 w-2.5 rounded-full ${status.status === 'online' ? 'bg-green-500' : 'bg-red-500'}`;
+                    
+                    const mBadge = document.getElementById('mode-badge');
+                    if (status.mode === 'PAPER') {
+                        mBadge.className = "px-2 py-0.5 rounded text-xs font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30";
+                        mBadge.innerText = "PAPER TRADING";
+                        document.getElementById('paper-bal-status').innerText = fmtMoney.format(status.paper_balance || 0);
+                    } else {
+                        mBadge.className = "px-2 py-0.5 rounded text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30";
+                        mBadge.innerText = "LIVE DEPLOYED";
+                        document.getElementById('paper-bal-status').innerText = "LIVE";
+                    }
+
+                    document.getElementById('regime-badge').innerText = `Market: ${status.regime}`;
+                    const now = new Date();
+                    document.getElementById('last-sync').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
                 }
 
-                document.getElementById('regime-badge').innerText = `Market: ${status.regime}`;
-                const now = new Date();
-                document.getElementById('last-sync').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
-            }
+                // 2. Portfolio
+                const port = await fetchAPI('/api/portfolio');
+                if (port) {
+                    const cap = port.capital || 0;
+                    const exp = port.total_exposure || 0;
+                    document.getElementById('total-capital').innerText = fmtMoney.format(cap);
+                    document.getElementById('total-exposure').innerText = fmtMoney.format(exp);
+                    document.getElementById('exposure-pct').innerText = cap > 0 ? `${((exp/cap)*100).toFixed(2)}% of portfolio` : "0%";
+                    document.getElementById('total-risk').innerText = fmtMoney.format(port.total_risk || 0);
+                    
+                    if (port.risk_limit_reached) {
+                        document.getElementById('risk-warning').classList.remove('hidden');
+                    } else {
+                        document.getElementById('risk-warning').classList.add('hidden');
+                    }
+                    
+                    document.getElementById('open-trades-count').innerText = port.open_positions_count || 0;
 
-            // 2. Portfolio
-            const port = await fetchAPI('/api/portfolio');
-            if (port) {
-                const cap = port.capital || 0;
-                const exp = port.total_exposure || 0;
-                document.getElementById('total-capital').innerText = fmtMoney.format(cap);
-                document.getElementById('total-exposure').innerText = fmtMoney.format(exp);
-                document.getElementById('exposure-pct').innerText = cap > 0 ? `${((exp/cap)*100).toFixed(2)}% of portfolio` : "0%";
-                document.getElementById('total-risk').innerText = fmtMoney.format(port.total_risk || 0);
-                
-                if (port.risk_limit_reached) {
-                    document.getElementById('risk-warning').classList.remove('hidden');
-                } else {
-                    document.getElementById('risk-warning').classList.add('hidden');
+                    // --- Unrealized P&L ---
+                    const uPnl = port.unrealized_pnl_usd || 0;
+                    const uPct = port.unrealized_pnl_pct || 0;
+                    const uEl = document.getElementById('unrealized-pnl');
+                    const uPctEl = document.getElementById('unrealized-pnl-pct');
+                    uEl.innerText = (uPnl >= 0 ? '+' : '') + fmtMoney.format(uPnl);
+                    uEl.className = `text-3xl font-bold font-mono mt-2 ${getColorByValue(uPnl)}`;
+                    uPctEl.innerText = `${uPct >= 0 ? '+' : ''}${uPct.toFixed(2)}% open positions`;
+                    uPctEl.className = `text-xs mt-1 ${getColorByValue(uPnl)}`;
+
+                    // --- Realized P&L (store both modes in data attrs, render current) ---
+                    const rEl = document.getElementById('realized-pnl');
+                    rEl.dataset.daily = port.realized_pnl_today ?? 0;
+                    rEl.dataset.alltime = port.realized_pnl_alltime ?? 0;
+                    renderRealizedPnl();
                 }
+
+                // 3. Positions
+                const pos = await fetchAPI('/api/positions');
+                const pBody = document.getElementById('positions-body');
+                const pEmpty = document.getElementById('positions-empty');
                 
-                document.getElementById('open-trades-count').innerText = port.open_positions_count || 0;
-
-                // --- Unrealized P&L ---
-                const uPnl = port.unrealized_pnl_usd || 0;
-                const uPct = port.unrealized_pnl_pct || 0;
-                const uEl = document.getElementById('unrealized-pnl');
-                const uPctEl = document.getElementById('unrealized-pnl-pct');
-                uEl.innerText = (uPnl >= 0 ? '+' : '') + fmtMoney.format(uPnl);
-                uEl.className = `text-3xl font-bold font-mono mt-2 ${getColorByValue(uPnl)}`;
-                uPctEl.innerText = `${uPct >= 0 ? '+' : ''}${uPct.toFixed(2)}% open positions`;
-                uPctEl.className = `text-xs mt-1 ${getColorByValue(uPnl)}`;
-
-                // --- Realized P&L (store both modes in data attrs, render current) ---
-                const rEl = document.getElementById('realized-pnl');
-                rEl.dataset.daily = port.realized_pnl_today ?? 0;
-                rEl.dataset.alltime = port.realized_pnl_alltime ?? 0;
-                renderRealizedPnl();
-            }
-
-            // 3. Positions
-            const pos = await fetchAPI('/api/positions');
-            const pBody = document.getElementById('positions-body');
-            const pEmpty = document.getElementById('positions-empty');
-            
-            if (pos && pos.length > 0) {
-                pEmpty.classList.add('hidden');
-                pBody.innerHTML = '';
-                
-                // Fetch real-time prices from Binance API for accurate P&L
-                const priceRes = await fetch('https://api.binance.com/api/v3/ticker/price');
-                const priceData = await priceRes.json();
-                const currentPrices = {};
-                priceData.forEach(p => { currentPrices[p.symbol] = parseFloat(p.price); });
-
-                pos.forEach(p => {
-                    // Try to grab live binance price. If API limits are hit, fallback to entry.
-                    const livePrice = currentPrices[p.coin] || p.entry_price;
-                    const pnlPct = (livePrice - p.entry_price) / p.entry_price;
+                if (pos && pos.length > 0) {
+                    pEmpty.classList.add('hidden');
+                    pBody.innerHTML = '';
                     
-                    const tp1 = p.take_profit_1 ? formatPrice(p.take_profit_1) : 'N/A';
-                    const target = p.take_profit ? formatPrice(p.take_profit) : 'N/A';
-                    const stopLoss = p.stop_loss ? formatPrice(p.stop_loss) : 'N/A';
-                    
-                    pBody.innerHTML += `
-                        <tr class="hover:bg-gray-800/80 transition-colors cursor-default">
-                            <td class="p-3 pl-4 font-semibold text-white">
-                                <span class="bg-gray-800 border border-gray-700 rounded px-2 py-0.5">${p.coin}</span>
-                            </td>
-                            <td class="p-3 font-mono text-gray-300">
-                                <div class="flex flex-col">
-                                    <span>${formatPrice(p.entry_price)}</span>
-                                    <span class="text-[10px] text-gray-500">Live: ${formatPrice(livePrice)}</span>
-                                </div>
-                            </td>
-                            <td class="p-3 font-mono text-xs text-gray-400">
-                                <div class="flex flex-col">
-                                    <span class="text-green-400 opacity-80">TP1: ${tp1}</span>
-                                    <span class="text-green-400">TP2: ${target}</span>
-                                    <span class="text-red-400 mt-0.5">SL: ${stopLoss}</span>
-                                </div>
-                            </td>
-                            <td class="p-3 font-mono text-gray-300">
-                                <div class="flex flex-col">
-                                    <span>${fmtMoney.format(p.position_size)}</span>
-                                    <span class="text-[10px] text-gray-500">Tier ${p.tier}</span>
-                                </div>
-                            </td>
-                            <td class="p-3 pr-4 text-right font-mono font-bold ${getColorByValue(pnlPct)}">
-                                ${fmtPct.format(pnlPct)}
-                            </td>
-                        </tr>
-                    `;
-                });
-            } else {
-                pBody.innerHTML = '';
-                pEmpty.classList.remove('hidden');
-                document.getElementById('daily-pnl').innerText = "$0.00";
-                document.getElementById('pnl-pct').innerText = "0.00%";
-            }
+                    // Fetch real-time prices from Binance API with timeout
+                    const priceRes = await fetchAPI('https://api.binance.com/api/v3/ticker/price', 5000);
+                    const currentPrices = {};
+                    if (priceRes) {
+                        priceRes.forEach(p => { currentPrices[p.symbol] = parseFloat(p.price); });
+                    }
 
-            // 4. History
-            const hist = await fetchAPI('/api/history?limit=10');
-            const hBody = document.getElementById('history-body');
-            const hEmpty = document.getElementById('history-empty');
-
-            if (hist && hist.length > 0) {
-                hEmpty.classList.add('hidden');
-                hBody.innerHTML = '';
-                hist.forEach(h => {
-                    const pnlClass = h.pnl_usd >= 0 ? 'text-green-400' : 'text-red-400';
-                    const sign = h.pnl_usd >= 0 ? '+' : '';
-                    hBody.innerHTML += `
-                        <tr class="hover:bg-gray-800/50 transition-colors">
-                            <td class="p-3 pl-4 font-semibold text-gray-300">
-                                ${h.coin}
-                                <div class="text-[10px] text-gray-500 font-mono">${h.entry_time.split('T')[1].substring(0,5)} -> ${h.exit_time.split('T')[1].substring(0,5)}</div>
-                            </td>
-                            <td class="p-3 text-xs text-gray-400 lowercase italic">${h.exit_reason || "unknown"}</td>
-                            <td class="p-3 pr-4 text-right">
-                                <span class="font-mono font-bold ${pnlClass}">${sign}${fmtMoney.format(h.pnl_usd)}</span>
-                                <div class="text-[10px] ${pnlClass} opacity-80">${sign}${(h.pnl_percent).toFixed(3)}%</div>
-                            </td>
-                        </tr>
-                    `;
-                });
-            } else {
-                hBody.innerHTML = '';
-                hEmpty.classList.remove('hidden');
-            }
-
-            // 5. Live Scans
-            const scans = await fetchAPI('/api/signals');
-            const sBody = document.getElementById('scans-body');
-            const sEmpty = document.getElementById('scans-empty');
-
-            if (scans && scans.length > 0) {
-                sEmpty.classList.add('hidden');
-                sBody.innerHTML = '';
-                scans.forEach(s => {
-                    const signalColor = s.signal === 'buy' ? 'text-green-400' : (s.signal === 'sell' ? 'text-red-400' : 'text-gray-500');
-                    const reason = s.reasons && s.reasons.length > 0 ? s.reasons[0] : 'Scanning metrics...';
-                    sBody.innerHTML += `
-                        <tr class="hover:bg-gray-800/80 transition-colors cursor-default">
-                            <td class="p-3 pl-5 font-bold text-white tracking-wide">${s.symbol}</td>
-                            <td class="p-3 font-bold uppercase tracking-wider text-xs ${signalColor}">${s.signal}</td>
-                            <td class="p-3 font-mono text-gray-500 text-xs">T${s.tier}</td>
-                            <td class="p-3 font-mono text-gray-300">
-                                <div class="flex items-center">
-                                    <span class="mr-2">${(s.confidence * 100).toFixed(1)}%</span>
-                                    <div class="h-1.5 w-12 bg-gray-800 rounded-full overflow-hidden">
-                                        <div class="h-full bg-blue-500" style="width: ${s.confidence * 100}%"></div>
+                    pos.forEach(p => {
+                        const livePrice = currentPrices[p.coin] || p.entry_price;
+                        const pnlPct = (livePrice - p.entry_price) / p.entry_price;
+                        
+                        const tp1 = p.take_profit_1 ? formatPrice(p.take_profit_1) : 'N/A';
+                        const target = p.take_profit ? formatPrice(p.take_profit) : 'N/A';
+                        const stopLoss = p.stop_loss ? formatPrice(p.stop_loss) : 'N/A';
+                        
+                        pBody.innerHTML += `
+                            <tr class="hover:bg-gray-800/80 transition-colors cursor-default">
+                                <td class="p-3 pl-4 font-semibold text-white">
+                                    <span class="bg-gray-800 border border-gray-700 rounded px-2 py-0.5">${p.coin}</span>
+                                </td>
+                                <td class="p-3 font-mono text-gray-300">
+                                    <div class="flex flex-col">
+                                        <span>${formatPrice(p.entry_price)}</span>
+                                        <span class="text-[10px] text-gray-500">Live: ${formatPrice(livePrice)}</span>
                                     </div>
-                                </div>
-                            </td>
-                            <td class="p-3 font-mono text-[11px] text-gray-500 font-medium">
-                                <span class="text-blue-400">${(s.ta_conf*100).toFixed(1)}%</span> / 
-                                <span class="text-purple-400">${(s.ml_conf*100).toFixed(1)}%</span> / 
-                                <span class="text-orange-400">${(s.tcn_conf*100).toFixed(1)}%</span>
-                            </td>
-                            <td class="p-3 pr-5 text-xs italic text-gray-400 truncate max-w-[200px]" title="${reason}">${reason}</td>
-                        </tr>
-                    `;
-                });
-            } else {
-                if (sBody) sBody.innerHTML = '';
-                if (sEmpty) sEmpty.classList.remove('hidden');
-            }
+                                </td>
+                                <td class="p-3 font-mono text-xs text-gray-400">
+                                    <div class="flex flex-col">
+                                        <span class="text-green-400 opacity-80">TP1: ${tp1}</span>
+                                        <span class="text-green-400">TP2: ${target}</span>
+                                        <span class="text-red-400 mt-0.5">SL: ${stopLoss}</span>
+                                    </div>
+                                </td>
+                                <td class="p-3 font-mono text-gray-300">
+                                    <div class="flex flex-col">
+                                        <span>${fmtMoney.format(p.position_size)}</span>
+                                        <span class="text-[10px] text-gray-500">Tier ${p.tier}</span>
+                                    </div>
+                                </td>
+                                <td class="p-3 pr-4 text-right font-mono font-bold ${getColorByValue(pnlPct)}">
+                                    ${fmtPct.format(pnlPct)}
+                                </td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    pBody.innerHTML = '';
+                    pEmpty.classList.remove('hidden');
+                }
 
-            // 6. Model Performance Leaderboard
-            const perfData = await fetchAPI('/api/model-performance?days=30');
-            if (perfData && perfData.models) {
-                const models = perfData.models;
-                const rankLabels = ['🥇 Best', '🥈 2nd', '🥉 3rd'];
-                const rankColors = ['border-yellow-500/30 text-yellow-400', 'border-gray-500/30 text-gray-400', 'border-orange-700/30 text-orange-700'];
-                
-                // Sort by accuracy to assign rank
-                const sorted = ['ta', 'ml', 'tcn'].filter(m => models[m]?.accuracy_pct !== null && models[m]?.accuracy_pct !== undefined);
-                sorted.sort((a, b) => (models[b]?.accuracy_pct || 0) - (models[a]?.accuracy_pct || 0));
-                const ranks = {};
-                sorted.forEach((key, i) => ranks[key] = i);
-                
-                const hasData = sorted.length > 0;
-                document.getElementById('model-perf-note').classList.toggle('hidden', hasData);
-                
-                ['ta', 'ml', 'tcn'].forEach(model => {
-                    const m = models[model];
-                    if (!m) return;
-                    const rank = ranks[model];
-                    const badge = document.getElementById(`${model}-rank-badge`);
-                    const accEl = document.getElementById(`${model}-accuracy`);
+                // 4. History
+                const hist = await fetchAPI('/api/history?limit=10');
+                const hBody = document.getElementById('history-body');
+                const hEmpty = document.getElementById('history-empty');
+
+                if (hist && hist.length > 0) {
+                    hEmpty.classList.add('hidden');
+                    hBody.innerHTML = '';
+                    hist.forEach(h => {
+                        const pnlClass = h.pnl_usd >= 0 ? 'text-green-400' : 'text-red-400';
+                        const sign = h.pnl_usd >= 0 ? '+' : '';
+                        hBody.innerHTML += `
+                            <tr class="hover:bg-gray-800/50 transition-colors">
+                                <td class="p-3 pl-4 font-semibold text-gray-300">
+                                    ${h.coin}
+                                    <div class="text-[10px] text-gray-500 font-mono">${h.entry_time.split('T')[1].substring(0,5)} -> ${h.exit_time.split('T')[1].substring(0,5)}</div>
+                                </td>
+                                <td class="p-3 text-xs text-gray-400 lowercase italic">${h.exit_reason || "unknown"}</td>
+                                <td class="p-3 pr-4 text-right">
+                                    <span class="font-mono font-bold ${pnlClass}">${sign}${fmtMoney.format(h.pnl_usd)}</span>
+                                    <div class="text-[10px] ${pnlClass} opacity-80">${sign}${(h.pnl_percent).toFixed(3)}%</div>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    hBody.innerHTML = '';
+                    hEmpty.classList.remove('hidden');
+                }
+
+                // 5. Live Scans
+                const scans = await fetchAPI('/api/signals');
+                const sBody = document.getElementById('scans-body');
+                const sEmpty = document.getElementById('scans-empty');
+
+                if (scans && scans.length > 0) {
+                    sEmpty.classList.add('hidden');
+                    sBody.innerHTML = '';
+                    scans.forEach(s => {
+                        const signalColor = s.signal === 'buy' ? 'text-green-400' : (s.signal === 'sell' ? 'text-red-400' : 'text-gray-500');
+                        const reason = s.reasons && s.reasons.length > 0 ? s.reasons[0] : 'Scanning metrics...';
+                        sBody.innerHTML += `
+                            <tr class="hover:bg-gray-800/80 transition-colors cursor-default">
+                                <td class="p-3 pl-5 font-bold text-white tracking-wide">${s.symbol}</td>
+                                <td class="p-3 font-bold uppercase tracking-wider text-xs ${signalColor}">${s.signal}</td>
+                                <td class="p-3 font-mono text-gray-500 text-xs">T${s.tier}</td>
+                                <td class="p-3 font-mono text-gray-300">
+                                    <div class="flex items-center">
+                                        <span class="mr-2">${(s.confidence * 100).toFixed(1)}%</span>
+                                        <div class="h-1.5 w-12 bg-gray-800 rounded-full overflow-hidden">
+                                            <div class="h-full bg-blue-500" style="width: ${s.confidence * 100}%"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="p-3 font-mono text-[11px] text-gray-500 font-medium">
+                                    <span class="text-blue-400">${(s.ta_conf*100).toFixed(1)}%</span> / 
+                                    <span class="text-purple-400">${(s.ml_conf*100).toFixed(1)}%</span> / 
+                                    <span class="text-orange-400">${(s.tcn_conf*100).toFixed(1)}%</span>
+                                </td>
+                                <td class="p-3 pr-5 text-xs italic text-gray-400 truncate max-w-[200px]" title="${reason}">${reason}</td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    if (sBody) sBody.innerHTML = '';
+                    if (sEmpty) sEmpty.classList.remove('hidden');
+                }
+
+                // 6. Model Performance Leaderboard
+                const perfData = await fetchAPI('/api/model-performance?days=30');
+                if (perfData && perfData.models) {
+                    const models = perfData.models;
+                    const rankLabels = ['🥇 Best', '🥈 2nd', '🥉 3rd'];
+                    const rankColors = ['border-yellow-500/30 text-yellow-400', 'border-gray-500/30 text-gray-400', 'border-orange-700/30 text-orange-700'];
                     
-                    if (m.accuracy_pct !== null && m.accuracy_pct !== undefined) {
-                        accEl.innerText = m.accuracy_pct.toFixed(1) + '%';
-                        const color = m.accuracy_pct >= 60 ? 'text-green-400' : m.accuracy_pct >= 45 ? 'text-yellow-400' : 'text-red-400';
-                        accEl.className = `text-3xl font-bold font-mono ${color}`;
-                        if (rank !== undefined && rank < 3) {
-                            badge.innerText = rankLabels[rank];
-                            badge.className = `text-xs px-2 py-0.5 rounded border ${rankColors[rank]}`;
+                    const sorted = ['ta', 'ml', 'tcn'].filter(m => models[m]?.accuracy_pct !== null && models[m]?.accuracy_pct !== undefined);
+                    sorted.sort((a, b) => (models[b]?.accuracy_pct || 0) - (models[a]?.accuracy_pct || 0));
+                    const ranks = {};
+                    sorted.forEach((key, i) => ranks[key] = i);
+                    
+                    const hasData = sorted.length > 0;
+                    document.getElementById('model-perf-note').classList.toggle('hidden', hasData);
+                    
+                    ['ta', 'ml', 'tcn'].forEach(model => {
+                        const m = models[model];
+                        if (!m) return;
+                        const rank = ranks[model];
+                        const badge = document.getElementById(`${model}-rank-badge`);
+                        const accEl = document.getElementById(`${model}-accuracy`);
+                        
+                        if (m.accuracy_pct !== null && m.accuracy_pct !== undefined) {
+                            accEl.innerText = m.accuracy_pct.toFixed(1) + '%';
+                            const color = m.accuracy_pct >= 60 ? 'text-green-400' : m.accuracy_pct >= 45 ? 'text-yellow-400' : 'text-red-400';
+                            accEl.className = `text-3xl font-bold font-mono ${color}`;
+                            if (rank !== undefined && rank < 3) {
+                                badge.innerText = rankLabels[rank];
+                                badge.className = `text-xs px-2 py-0.5 rounded border ${rankColors[rank]}`;
+                            } else {
+                                badge.innerText = '—'; badge.className = 'text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-500';
+                            }
                         } else {
-                            badge.innerText = '—'; badge.className = 'text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-500';
+                            accEl.innerText = '—';
+                            accEl.className = 'text-3xl font-bold font-mono text-gray-400';
+                            badge.innerText = 'No data'; badge.className = 'text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-500';
                         }
-                    } else {
-                        accEl.innerText = '—';
-                        accEl.className = 'text-3xl font-bold font-mono text-gray-400';
-                        badge.innerText = 'No data'; badge.className = 'text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-500';
-                    }
-                    
-                    document.getElementById(`${model}-preds`).innerText = m.buy_signals ?? '—';
-                    document.getElementById(`${model}-wins`).innerText = m.wins ?? '—';
-                    const pnlEl = document.getElementById(`${model}-pnl`);
-                    if (m.avg_pnl_pct !== null && m.avg_pnl_pct !== undefined) {
-                        pnlEl.innerText = (m.avg_pnl_pct >= 0 ? '+' : '') + m.avg_pnl_pct.toFixed(2) + '%';
-                        pnlEl.className = `font-mono ${m.avg_pnl_pct >= 0 ? 'text-green-400' : 'text-red-400'}`;
-                    } else {
-                        pnlEl.innerText = '—'; pnlEl.className = 'font-mono text-gray-300';
-                    }
-                });
+                        
+                        document.getElementById(`${model}-preds`).innerText = m.buy_signals ?? '—';
+                        document.getElementById(`${model}-wins`).innerText = m.wins ?? '—';
+                        const pnlEl = document.getElementById(`${model}-pnl`);
+                        if (m.avg_pnl_pct !== null && m.avg_pnl_pct !== undefined) {
+                            pnlEl.innerText = (m.avg_pnl_pct >= 0 ? '+' : '') + m.avg_pnl_pct.toFixed(2) + '%';
+                            pnlEl.className = `font-mono ${m.avg_pnl_pct >= 0 ? 'text-green-400' : 'text-red-400'}`;
+                        } else {
+                            pnlEl.innerText = '—'; pnlEl.className = 'font-mono text-gray-300';
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("Dashboard update failed:", err);
+            } finally {
+                // Always hide the indicator
+                setTimeout(() => {
+                    refreshIndicator.classList.add('hidden');
+                }, 500);
             }
-
-            setTimeout(() => {
-                document.getElementById('refresh-indicator').classList.add('hidden');
-            }, 500);
         }
 
 

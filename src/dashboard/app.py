@@ -48,7 +48,12 @@ async def startup_event():
     logger.info("Initializing Database schema check via Dashboard...")
     try:
         db.create_tables()
-        logger.info("Database available.")
+        logger.info("Database Schema ready.")
+        
+        # Now explicitly load positions once DB is ready
+        from src.trading.positions import position_manager
+        position_manager._load_open_positions()
+        
     except Exception as e:
         logger.error(f"Database sync issue: {e}")
 
@@ -92,6 +97,7 @@ async def get_portfolio():
         if positions:
             for pos in positions:
                 try:
+                    # Use a short timeout for live dashboard price checks
                     ticker = data_collector.public_client.get_symbol_ticker(symbol=pos["coin"])
                     live_price = float(ticker["price"])
                     entry_price = pos["entry_price"]
@@ -99,11 +105,13 @@ async def get_portfolio():
                     remaining_size = pos.get("remaining_size", pos["position_size"])
                     coins_held = remaining_size / entry_price
                     unrealized_pnl_usd += (live_price - entry_price) * coins_held
-                except Exception:
+                except Exception as e:
+                    logger.warning(f"Dashboard price fetch failed for {pos.get('coin')}: {e}")
                     pass  # Skip if single ticker fails
             if total_exposure > 0:
                 unrealized_pnl_pct = (unrealized_pnl_usd / total_exposure) * 100
-    except Exception:
+    except Exception as e:
+        logger.error(f"P&L calculation Error: {e}")
         pass  # Don't let P&L calc error kill the whole endpoint
 
     # ------------------------------------------------------------------

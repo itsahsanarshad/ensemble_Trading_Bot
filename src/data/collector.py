@@ -48,20 +48,24 @@ class BinanceCollector:
         api_key = settings.exchange.binance_api_key
         api_secret = settings.exchange.binance_secret_key
         
+        # Add 10s timeout to all requests to prevent bot stalling
+        requests_params = {'timeout': 10}
+        
         if settings.exchange.use_testnet:
-            client = Client(api_key, api_secret, testnet=True)
-            logger.info("Using Binance Testnet for trading")
+            client = Client(api_key, api_secret, testnet=True, requests_params=requests_params)
+            logger.info("Using Binance Testnet for trading (Timeout: 10s)")
         else:
-            client = Client(api_key, api_secret)
-            logger.info("Using Binance Production API for trading")
+            client = Client(api_key, api_secret, requests_params=requests_params)
+            logger.info("Using Binance Production API for trading (Timeout: 10s)")
         
         return client
     
     def _create_public_client(self) -> Client:
         """Create public Binance client for data collection (no auth needed)."""
-        # Public client always uses mainnet for historical data
-        client = Client("", "")  # No API keys needed for public endpoints
-        logger.info("Using Binance Public API for data collection")
+        # Add 10s timeout to public requests as well
+        requests_params = {'timeout': 10}
+        client = Client("", "", requests_params=requests_params)
+        logger.info("Using Binance Public API for data collection (Timeout: 10s)")
         return client
     
     def _check_rate_limit(self, weight: int = 1) -> None:

@@ -263,7 +263,8 @@ class TradingExecutor:
             client = Client(
                 settings.exchange.binance_api_key,
                 settings.exchange.binance_secret_key,
-                testnet=settings.exchange.use_testnet
+                testnet=settings.exchange.use_testnet,
+                requests_params={'timeout': 10}
             )
             
             # Calculate quantity with proper precision
@@ -333,7 +334,8 @@ class TradingExecutor:
             client = Client(
                 settings.exchange.binance_api_key,
                 settings.exchange.binance_secret_key,
-                testnet=settings.exchange.use_testnet
+                testnet=settings.exchange.use_testnet,
+                requests_params={'timeout': 10}
             )
             
             # Apply LOT_SIZE step_size restrictions dynamically per altcoin

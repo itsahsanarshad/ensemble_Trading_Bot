@@ -63,6 +63,9 @@ class TradingBot:
         db.create_tables()
         logger.info("Database tables created")
         
+        # Load open positions now that DB is guaranteed to exist
+        position_manager._load_open_positions()
+        
         # Check API connection
         if collector.check_api_connection():
             logger.info("Binance API connected")
