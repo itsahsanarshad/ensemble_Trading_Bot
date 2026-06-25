@@ -431,23 +431,43 @@ class DatabaseManager:
         session = self.get_session()
         try:
             trades = session.query(Trade).filter(
-                Trade.entry_time >= date,
+                Trade.exit_time >= date,
                 Trade.status == "CLOSED"
             ).all()
             
+            # Fetch current paper balance as capital
+            from src.data.state import load_state
+            state = load_state()
+            capital = state.get("paper_balance", 10000.0) if state else 10000.0
+            
             if not trades:
-                return {"total": 0, "wins": 0, "losses": 0, "pnl": 0}
+                return {
+                    "total": 0,
+                    "wins": 0,
+                    "losses": 0,
+                    "pnl": 0.0,
+                    "win_rate": 0.0,
+                    "best_trade": 0.0,
+                    "worst_trade": 0.0,
+                    "capital": capital
+                }
             
             wins = sum(1 for t in trades if t.pnl_percent and t.pnl_percent > 0)
             losses = sum(1 for t in trades if t.pnl_percent and t.pnl_percent < 0)
             pnl = sum(t.pnl_usd or 0 for t in trades)
+            
+            best_trade = max(t.pnl_usd or 0.0 for t in trades)
+            worst_trade = min(t.pnl_usd or 0.0 for t in trades)
             
             return {
                 "total": len(trades),
                 "wins": wins,
                 "losses": losses,
                 "pnl": pnl,
-                "win_rate": wins / len(trades) if trades else 0
+                "win_rate": wins / len(trades) if trades else 0.0,
+                "best_trade": best_trade,
+                "worst_trade": worst_trade,
+                "capital": capital
             }
         finally:
             session.close()

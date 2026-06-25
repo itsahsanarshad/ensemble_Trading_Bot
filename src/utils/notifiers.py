@@ -76,7 +76,8 @@ class DiscordNotifier:
                 {"name": "Risk/Reward", "value": f"1 : {rr_ratio:.2f}", "inline": True},
                 {"name": "Strategy", "value": "50% exit at TP1 → SL→Breakeven → run to TP2", "inline": False},
             ],
-            "footer": {"text": f"Alpha-Bot • {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}"},
+            "footer": {"text": "Alpha-Bot"},
+            "timestamp": datetime.utcnow().isoformat() + "Z",
             "thumbnail": {"url": "https://cdn-icons-png.flaticon.com/512/3443/3443338.png"}
         }
         return self._send_embed(embed)
@@ -113,7 +114,8 @@ class DiscordNotifier:
             "title": f"{emoji} CLOSED: {symbol}",
             "color": color,
             "fields": fields,
-            "footer": {"text": f"Alpha-Bot • {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}"}
+            "footer": {"text": "Alpha-Bot"},
+            "timestamp": datetime.utcnow().isoformat() + "Z"
         }
         return self._send_embed(embed)
 
@@ -130,7 +132,8 @@ class DiscordNotifier:
                 {"name": "SL Updated", "value": "→ Breakeven (Entry Price)", "inline": True},
                 {"name": "Next Target", "value": "TP2 (+7.0%)", "inline": True},
             ],
-            "footer": {"text": f"Alpha-Bot • {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}"}
+            "footer": {"text": "Alpha-Bot"},
+            "timestamp": datetime.utcnow().isoformat() + "Z"
         }
         return self._send_embed(embed)
 
@@ -149,7 +152,7 @@ class DiscordNotifier:
         performance_emoji = "📈" if pnl >= 0 else "📉"
         
         embed = {
-            "title": f"{performance_emoji} Daily Performance Report — {datetime.now().strftime('%Y-%m-%d')}",
+            "title": f"{performance_emoji} Daily Performance Summary",
             "color": color,
             "fields": [
                 {"name": "💰 Daily P&L", "value": f"${pnl:+.2f}", "inline": True},
@@ -161,7 +164,8 @@ class DiscordNotifier:
                 {"name": "🏆 Best Trade", "value": f"${best:+.2f}", "inline": True},
                 {"name": "💀 Worst Trade", "value": f"${worst:+.2f}", "inline": True},
             ],
-            "timestamp": datetime.utcnow().isoformat()
+            "footer": {"text": "Alpha-Bot"},
+            "timestamp": datetime.utcnow().isoformat() + "Z"
         }
         return self._send_embed(embed)
 

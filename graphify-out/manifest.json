@@ -1,0 +1,232 @@
+{
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\indicators (1).py": {
+    "mtime": 1773717298.7083905,
+    "ast_hash": "7ab653348f357ada11db3d022e4d6e2f",
+    "semantic_hash": "7ab653348f357ada11db3d022e4d6e2f"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\run.py": {
+    "mtime": 1773657025.1346242,
+    "ast_hash": "7215ca709530fcfb947f50fc943eb2a8",
+    "semantic_hash": "7215ca709530fcfb947f50fc943eb2a8"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\scorer (1).py": {
+    "mtime": 1773749091.174532,
+    "ast_hash": "49822778075c905286743f286953aae7",
+    "semantic_hash": "49822778075c905286743f286953aae7"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\catboost_info\\catboost_training.json": {
+    "mtime": 1782408402.7364237,
+    "ast_hash": "9363b76e7302b06ead7a087535824296",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\config\\coins.py": {
+    "mtime": 1773750240.516771,
+    "ast_hash": "95e8637612d029f38fd21347ff5958b4",
+    "semantic_hash": "95e8637612d029f38fd21347ff5958b4"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\config\\settings.py": {
+    "mtime": 1773663249.2286513,
+    "ast_hash": "3a600d20c1d5dd31ad955bb90611f007",
+    "semantic_hash": "3a600d20c1d5dd31ad955bb90611f007"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\config\\__init__.py": {
+    "mtime": 1767458615.694772,
+    "ast_hash": "4501ee93e8dc958a672e55ddcf039f36",
+    "semantic_hash": "4501ee93e8dc958a672e55ddcf039f36"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\data\\bot_state.json": {
+    "mtime": 1782420563.0798411,
+    "ast_hash": "9f1f626f60e14577c3ea3d489bd7cbcb",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\data\\paper_state.json": {
+    "mtime": 1767902721.4753044,
+    "ast_hash": "567abed0d07713ea9acba5025abb3d50",
+    "semantic_hash": "567abed0d07713ea9acba5025abb3d50"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\models\\performance_tracker.json": {
+    "mtime": 1782421539.634096,
+    "ast_hash": "f4af35dccd9192b061bca2a00b06fadc",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\scripts\\check_data.py": {
+    "mtime": 1767732284.602981,
+    "ast_hash": "a8256f541fe269c16c4042bb0aa1f4b9",
+    "semantic_hash": "a8256f541fe269c16c4042bb0aa1f4b9"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\scripts\\daily_stats.py": {
+    "mtime": 1767903347.9160948,
+    "ast_hash": "3c1d172ab19dd0cff32d617de532002a",
+    "semantic_hash": "3c1d172ab19dd0cff32d617de532002a"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\scripts\\ensemble_backtest.py": {
+    "mtime": 1767900341.717766,
+    "ast_hash": "3e262c0d192b678dd331b9403833ae28",
+    "semantic_hash": "3e262c0d192b678dd331b9403833ae28"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\scripts\\evaluate_individual_models.py": {
+    "mtime": 1767900380.9688852,
+    "ast_hash": "a3c6c908a372d8c881147260950afc32",
+    "semantic_hash": "a3c6c908a372d8c881147260950afc32"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\scripts\\evaluate_models.py": {
+    "mtime": 1767818392.6446016,
+    "ast_hash": "a667aed93ba3634169387c75e7c4405f",
+    "semantic_hash": "a667aed93ba3634169387c75e7c4405f"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\bot.py": {
+    "mtime": 1773972828.506564,
+    "ast_hash": "7e95741d2d13983ea671cff07bbccaf4",
+    "semantic_hash": "7e95741d2d13983ea671cff07bbccaf4"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\__init__.py": {
+    "mtime": 1767458711.8695345,
+    "ast_hash": "81487f9cb2d379c8ce5dde3b23de7d88",
+    "semantic_hash": "81487f9cb2d379c8ce5dde3b23de7d88"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\dashboard\\app.py": {
+    "mtime": 1773972826.4854965,
+    "ast_hash": "b235b0c0683f87b2fb5a7ef1d791e7fa",
+    "semantic_hash": "b235b0c0683f87b2fb5a7ef1d791e7fa"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\data\\collector.py": {
+    "mtime": 1773972819.5622728,
+    "ast_hash": "f651f8b75b74811696bc8c340fe38cd7",
+    "semantic_hash": "f651f8b75b74811696bc8c340fe38cd7"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\data\\database.py": {
+    "mtime": 1782421486.6303744,
+    "ast_hash": "818c11bf5427253be86a350d25a7c691",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\data\\features.py": {
+    "mtime": 1773629544.8983154,
+    "ast_hash": "5616522fdcea68460910b5377947d7ba",
+    "semantic_hash": "5616522fdcea68460910b5377947d7ba"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\data\\state.py": {
+    "mtime": 1773775030.7829154,
+    "ast_hash": "09c36a2ffee742dfbccbc072c19b59f5",
+    "semantic_hash": "09c36a2ffee742dfbccbc072c19b59f5"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\data\\__init__.py": {
+    "mtime": 1767778903.1929512,
+    "ast_hash": "9556838d24c77d2d8b3ad3269012e9b8",
+    "semantic_hash": "9556838d24c77d2d8b3ad3269012e9b8"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\models\\ensemble.py": {
+    "mtime": 1782406379.1815383,
+    "ast_hash": "2681d4a455c600886c904d1a196ad009",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\models\\ml_model.py": {
+    "mtime": 1773628451.6835263,
+    "ast_hash": "c414e75ef2dfa895463c17adb033f41e",
+    "semantic_hash": "c414e75ef2dfa895463c17adb033f41e"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\models\\ta_analyzer.py": {
+    "mtime": 1782405658.9240315,
+    "ast_hash": "a7c6feabc458a13e5526399ea93e6bae",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\models\\tcn_model.py": {
+    "mtime": 1782405810.3659585,
+    "ast_hash": "e84b30964ba24645aa10cc54938eec62",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\models\\__init__.py": {
+    "mtime": 1767694339.9921007,
+    "ast_hash": "a361ac556996d61ffb2c547e139721ab",
+    "semantic_hash": "a361ac556996d61ffb2c547e139721ab"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\trading\\executor.py": {
+    "mtime": 1782417738.35335,
+    "ast_hash": "85257d7b736f7aa125223e00d8218029",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\trading\\positions.py": {
+    "mtime": 1773972824.47165,
+    "ast_hash": "74c4179c1ca4b9da59ce2ade47ea09c4",
+    "semantic_hash": "74c4179c1ca4b9da59ce2ade47ea09c4"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\trading\\risk.py": {
+    "mtime": 1773769000.8981166,
+    "ast_hash": "c5296b1d036e62318c22c1caee46fa74",
+    "semantic_hash": "c5296b1d036e62318c22c1caee46fa74"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\trading\\__init__.py": {
+    "mtime": 1767459354.7438364,
+    "ast_hash": "e3a5b6baa80e217626b039dc4b2e6f58",
+    "semantic_hash": "e3a5b6baa80e217626b039dc4b2e6f58"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\utils\\logger.py": {
+    "mtime": 1773773769.424219,
+    "ast_hash": "4bd351cec192c5ac85c398e58d961b88",
+    "semantic_hash": "4bd351cec192c5ac85c398e58d961b88"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\utils\\notifications.py": {
+    "mtime": 1767459701.3849418,
+    "ast_hash": "131b10879b54e260cbf71bb10fc60b93",
+    "semantic_hash": "131b10879b54e260cbf71bb10fc60b93"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\utils\\notifiers.py": {
+    "mtime": 1782421509.0068512,
+    "ast_hash": "22abcc071095d3efe868cb2f1f1501e8",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\utils\\__init__.py": {
+    "mtime": 1773769704.6067252,
+    "ast_hash": "2d2af98bb646bc34a22f8fed26a8fbeb",
+    "semantic_hash": "2d2af98bb646bc34a22f8fed26a8fbeb"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\training\\backtest.py": {
+    "mtime": 1782406561.9378495,
+    "ast_hash": "e0ee467998f510f8f7058a996a0ba078",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\training\\train_lightgbm.py": {
+    "mtime": 1782408465.5160823,
+    "ast_hash": "826af9e5da56dc401c9de3227efd3eb9",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\training\\train_tcn.py": {
+    "mtime": 1773629546.9191456,
+    "ast_hash": "cda199fa68a237b2c2dab50c0e5c0b7f",
+    "semantic_hash": "cda199fa68a237b2c2dab50c0e5c0b7f"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\docker-compose.yml": {
+    "mtime": 1773779693.3941026,
+    "ast_hash": "c8d0a9c2e1366ed95622e916c29c8697",
+    "semantic_hash": "c8d0a9c2e1366ed95622e916c29c8697"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\README.md": {
+    "mtime": 1773690248.3351169,
+    "ast_hash": "3f7e4300083eaadce9aa085dd83a0522",
+    "semantic_hash": "3f7e4300083eaadce9aa085dd83a0522"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\requirements.txt": {
+    "mtime": 1773720027.2571218,
+    "ast_hash": "0a10f0756199466cd4e711cd7d9e411a",
+    "semantic_hash": "0a10f0756199466cd4e711cd7d9e411a"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\.agents\\rules\\graphify.md": {
+    "mtime": 1782403123.3214145,
+    "ast_hash": "56d322bc02e948acf8a5abc7fd5d20ff",
+    "semantic_hash": "56d322bc02e948acf8a5abc7fd5d20ff"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\.agents\\workflows\\graphify.md": {
+    "mtime": 1782403123.3214145,
+    "ast_hash": "84de69efd46ab0b8430393bd4188f8f2",
+    "semantic_hash": "84de69efd46ab0b8430393bd4188f8f2"
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\src\\dashboard\\static\\index.html": {
+    "mtime": 1782417812.1077406,
+    "ast_hash": "a6ba0a58ecc3606ace27b7e2c812a294",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\arsha\\projects\\ensemble_trading_bot\\models\\feature_importance_catboost.png": {
+    "mtime": 1767873952.0348406,
+    "ast_hash": "9d36ea6659e54ff505fb0494eed44578",
+    "semantic_hash": "9d36ea6659e54ff505fb0494eed44578"
+  }
+}

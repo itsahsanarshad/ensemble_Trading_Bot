@@ -166,7 +166,7 @@ def main():
         return
     
     print("\n" + "=" * 70)
-    print("📊 TRAINING RESULTS (Hybrid XGBoost + CatBoost)")
+    print("TRAINING RESULTS (Hybrid XGBoost + CatBoost)")
     print("=" * 70)
     print(f"Train Samples:     {metrics.get('train_samples', 0):,}")
     print(f"Val Samples:       {metrics.get('val_samples', 0):,}")
@@ -177,22 +177,22 @@ def main():
     print(f"XGBoost AUC:       {metrics.get('xgb_auc', 0):.4f}")
     print(f"Ensemble AUC:      {metrics.get('ensemble_auc', 0):.4f}")
     print("=" * 70)
-    
+
     # Quality check
     ensemble_auc = metrics.get('ensemble_auc', 0)
     if ensemble_auc > 0.70:
-        print("✅ Model quality: EXCELLENT (AUC > 0.70)")
+        print("[EXCELLENT] Model quality: AUC > 0.70")
     elif ensemble_auc > 0.65:
-        print("✅ Model quality: VERY GOOD (AUC > 0.65)")
+        print("[VERY GOOD] Model quality: AUC > 0.65")
     elif ensemble_auc > 0.60:
-        print("✅ Model quality: GOOD (AUC > 0.60)")
+        print("[GOOD]      Model quality: AUC > 0.60")
     elif ensemble_auc > 0.55:
-        print("⚠️  Model quality: FAIR (AUC 0.55-0.60)")
+        print("[FAIR]      Model quality: AUC 0.55-0.60")
     else:
-        print("❌ Model quality: POOR (AUC < 0.55)")
-    
+        print("[POOR]      Model quality: AUC < 0.55 -- consider more data")
+
     print("=" * 70)
-    print("📁 Model saved to: models/hybrid_ml_model.pkl")
+    print("Model saved to: models/hybrid_ml_model.pkl")
     print("=" * 70)
 
 

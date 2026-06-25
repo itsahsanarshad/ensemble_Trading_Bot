@@ -75,6 +75,28 @@ class TradingExecutor:
         
         logger.info(f"Trading Executor initialized in {mode.value} mode")
 
+    def sync_state(self) -> None:
+        """Sync in-memory balance and positions with DB to handle resets/out-of-process changes."""
+        if self.mode != ExecutionMode.PAPER:
+            return
+        try:
+            state = load_state()
+            if state:
+                db_balance = state["paper_balance"]
+                if abs(self.paper_balance - db_balance) > 0.01:
+                    logger.info(f"🔄 State sync: updating in-memory paper balance from ${self.paper_balance:.2f} to ${db_balance:.2f}")
+                    self.paper_balance = db_balance
+                    
+                    # Reload positions from database
+                    position_manager._load_open_positions()
+                    
+                    # Sync risk manager capital and parameters
+                    risk_manager.set_capital(self.paper_balance)
+                    risk_manager.daily_start_capital = self.paper_balance
+                    risk_manager._total_risk = 0.0
+                    risk_manager.daily_pnl = 0.0
+        except Exception as e:
+            logger.warning(f"Failed to sync executor state with DB: {e}")
     
     def execute_signal(self, symbol: str, signal: ConsensusSignal) -> Optional[OrderResult]:
         """
@@ -87,6 +109,7 @@ class TradingExecutor:
         Returns:
             OrderResult if trade executed
         """
+        self.sync_state()
         if signal.signal != "buy":
             return None
         
@@ -405,6 +428,7 @@ class TradingExecutor:
         Returns:
             Dictionary with scan results
         """
+        self.sync_state()
         from config import WATCHLIST
         symbols = symbols or WATCHLIST
         
@@ -460,6 +484,7 @@ class TradingExecutor:
         Returns:
             Dictionary with monitoring results
         """
+        self.sync_state()
         # Get current prices for all positions
         positions = position_manager.get_open_positions()
         

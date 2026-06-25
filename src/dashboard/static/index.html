@@ -6,6 +6,8 @@
     <title>Trading Bot Control Center</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -141,6 +143,19 @@
             </div>
         </div>
         
+    </div>
+
+    <!-- Portfolio Performance Equity Chart -->
+    <div class="grid grid-cols-1 gap-6 mb-6">
+        <div class="glass-panel p-5 rounded-xl shadow-lg border border-gray-700/50">
+            <div class="flex items-center justify-between mb-4 border-b border-gray-700/50 pb-2">
+                <h3 class="font-semibold text-white"><i class="fa-solid fa-chart-line text-blue-400 mr-2"></i>Portfolio Performance & Equity Curve</h3>
+                <span id="chart-sub" class="text-xs text-gray-500 font-mono">Updates automatically</span>
+            </div>
+            <div class="h-[250px] relative w-full">
+                <canvas id="equity-chart"></canvas>
+            </div>
+        </div>
     </div>
 
     <!-- Tables Grid -->
@@ -301,8 +316,8 @@
                     </tbody>
                 </table>
                 <div id="scans-empty" class="hidden flex-col items-center justify-center h-48 text-gray-500">
-                    <i class="fa-solid fa-hourglass-empty text-3xl mb-2"></i>
-                    <p>Executing first scan routine...</p>
+                    <i class="fa-solid fa-satellite text-3xl mb-2"></i>
+                    <p>No active signals detected. Scans run periodically.</p>
                 </div>
             </div>
         </div>
@@ -319,7 +334,7 @@
             </div>
             
             <p class="text-gray-300 text-sm mb-6 pb-4 border-b border-gray-700">
-                Warning: Triggering a hard reset will instantly terminate all currently open paper trades and permanently wipe your P&L history.
+                Warning: Triggering a hard reset will instantly terminate all currently open paper trades and reset the paper balance. (Closed trade history is preserved.)
             </p>
 
             <label class="block text-sm font-medium text-gray-400 mb-1">Inject New Paper Balance ($)</label>
@@ -433,7 +448,7 @@
                     document.getElementById('status-dot').className = `h-2.5 w-2.5 rounded-full ${status.status === 'online' ? 'bg-green-500' : 'bg-red-500'}`;
                     
                     const mBadge = document.getElementById('mode-badge');
-                    if (status.mode === 'PAPER') {
+                    if (status.mode && status.mode.toUpperCase() === 'PAPER') {
                         mBadge.className = "px-2 py-0.5 rounded text-xs font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30";
                         mBadge.innerText = "PAPER TRADING";
                         document.getElementById('paper-bal-status').innerText = fmtMoney.format(status.paper_balance || 0);
@@ -659,6 +674,12 @@
                         }
                     });
                 }
+
+                // 7. Balance History & Equity Chart
+                const historyData = await fetchAPI('/api/balance-history');
+                if (historyData) {
+                    renderPerformanceChart(historyData);
+                }
             } catch (err) {
                 console.error("Dashboard update failed:", err);
             } finally {
@@ -671,9 +692,115 @@
 
 
         // Modal Logic
+        let equityChart = null;
+
+        function renderPerformanceChart(historyData) {
+            const ctx = document.getElementById('equity-chart');
+            if (!ctx) return;
+            
+            if (historyData.length === 0) {
+                const capText = document.getElementById('total-capital').innerText;
+                const parsedCap = parseFloat(capText.replace(/[^0-9.]/g, '')) || 10000;
+                historyData = [
+                    { balance: parsedCap, recorded_at: new Date().toISOString(), note: 'baseline' }
+                ];
+            }
+            
+            const labels = historyData.map(h => {
+                const date = new Date(h.recorded_at);
+                return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            });
+            
+            const data = historyData.map(h => h.balance);
+            
+            if (equityChart) {
+                equityChart.data.labels = labels;
+                equityChart.data.datasets[0].data = data;
+                equityChart.update();
+            } else {
+                equityChart = new Chart(ctx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Portfolio Equity ($)',
+                            data: data,
+                            borderColor: '#3b82f6', // blue-500
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: historyData.length > 50 ? 0 : 3,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: '#3b82f6',
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                titleColor: '#e2e8f0',
+                                bodyColor: '#ffffff',
+                                borderColor: 'rgba(255, 255, 255, 0.1)',
+                                borderWidth: 1,
+                                callbacks: {
+                                    label: function(context) {
+                                        return 'Equity: ' + fmtMoney.format(context.parsed.y);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false,
+                                    color: 'rgba(255, 255, 255, 0.05)'
+                                },
+                                ticks: {
+                                    color: '#9ca3af', // gray-400
+                                    font: { size: 10 },
+                                    maxTicksLimit: 6
+                                }
+                            },
+                            y: {
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.05)'
+                                },
+                                ticks: {
+                                    color: '#9ca3af',
+                                    font: { size: 10 },
+                                    callback: function(value) {
+                                        return '$' + value.toLocaleString();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
         function openResetModal() {
+            const input = document.getElementById('new-balance-input');
+            const capText = document.getElementById('total-capital').innerText;
+            const parsedCap = parseFloat(capText.replace(/[^0-9.]/g, ''));
+            if (!isNaN(parsedCap) && parsedCap > 0) {
+                input.value = parsedCap;
+            }
             document.getElementById('reset-modal').classList.remove('hidden');
             document.getElementById('reset-error').classList.add('hidden');
+            
+            setTimeout(() => {
+                input.focus();
+                input.select();
+            }, 50);
         }
 
         function closeResetModal() {

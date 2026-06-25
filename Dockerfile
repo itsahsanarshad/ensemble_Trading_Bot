@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Python dependencies
 COPY requirements.txt .
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project
@@ -24,8 +25,8 @@ COPY . .
 # Create necessary directories
 RUN mkdir -p data logs models
 
-# Expose port 5000 for the dashboard
-EXPOSE 5000
+# Expose port 5001 for the dashboard
+EXPOSE 5001
 
-# Run the application with the dashboard on port 5000
-CMD ["python", "run.py", "--dashboard", "--port", "5000"]
+# Run the application with the dashboard on port 5001
+CMD ["python", "run.py", "--dashboard", "--port", "5001"]

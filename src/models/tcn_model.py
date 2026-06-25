@@ -1,12 +1,17 @@
 """
-PyTorch TCN (Temporal Convolutional Network) Model - Improved Version
+PyTorch TCN (Temporal Convolutional Network) Model — V5 (Regularized Filter)
 
-Improvements:
-1. Adaptive Sequence Length (15m=96, 1h=24, 4h=12 candles)
-2. Multi-Head Attention mechanism
-3. Data augmentation support (4x training data)
+V5 ROLE CHANGE:
+    The TCN is no longer a standalone signal source. It acts exclusively as a
+    sequential confirmation filter inside the V5 ConsensusEnsemble. A trade is
+    only entered when the XGBoost/CatBoost ML ensemble passes its hard gate AND
+    the TCN confirms the direction.
 
-Expected improvement: +15-25% accuracy over baseline
+    Regularization changes (V5):
+      - Dropout raised to 0.35 in dense + attention layers (was 0.2)
+      - Sequence length hard-capped at 24 bars (1 day of 1h data)
+        to prevent the attention mechanism from overfitting long noise sequences
+      - Data augmentation noise std lowered to 0.015 (was 0.02)
 """
 
 import numpy as np
@@ -27,21 +32,22 @@ from src.utils import logger
 # Configuration
 # ============================================================================
 
-# Adaptive sequence lengths per timeframe
+# Sequence lengths per timeframe — capped at 24 to avoid overfitting long sequences
 SEQUENCE_LENGTHS = {
-    "15m": 96,   # 24 hours of 15m data
-    "1h": 24,    # 24 hours of 1h data  
-    "4h": 12,    # 48 hours of 4h data
+    "15m": 48,   # 12 hours of 15m data (was 96 — reduced to limit noise surface)
+    "1h":  24,   # 24 hours of 1h data
+    "4h":  12,   # 48 hours of 4h data
 }
 DEFAULT_SEQUENCE_LENGTH = 24  # Default for 1h
+MAX_SEQUENCE_LENGTH      = 24  # Hard cap — prevents attention overfitting
 
 # Model architecture
-TCN_FILTERS = 32
-TCN_KERNEL_SIZE = 3
-TCN_DILATIONS = [1, 2, 4, 8, 16]
-ATTENTION_HEADS = 4
-ATTENTION_DIM = 32
-DROPOUT_RATE = 0.2
+TCN_FILTERS      = 32
+TCN_KERNEL_SIZE  = 3
+TCN_DILATIONS    = [1, 2, 4, 8, 16]
+ATTENTION_HEADS  = 4
+ATTENTION_DIM    = 32
+DROPOUT_RATE     = 0.35   # V5: increased from 0.2 → 0.35 for regularization
 
 # Features used by TCN (19 features including volume)
 FEATURES = [
@@ -208,15 +214,15 @@ class TCNWithAttention(nn.Module):
     def __init__(self, input_channels: int, sequence_length: int,
                  num_filters: int = 32, kernel_size: int = 3,
                  dilations: List[int] = None, num_heads: int = 4,
-                 dropout: float = 0.2):
+                 dropout: float = DROPOUT_RATE):
         super().__init__()
-        
-        self.input_channels = input_channels
-        self.sequence_length = sequence_length
-        self.num_filters = num_filters
-        
+
+        self.input_channels  = input_channels
+        self.sequence_length = min(sequence_length, MAX_SEQUENCE_LENGTH)  # V5: enforce cap
+        self.num_filters     = num_filters
+
         dilations = dilations or [1, 2, 4, 8, 16]
-        
+
         # Temporal blocks
         self.temporal_blocks = nn.ModuleList()
         in_channels = input_channels
@@ -225,17 +231,17 @@ class TCNWithAttention(nn.Module):
                 TemporalBlock(in_channels, num_filters, kernel_size, dilation, dropout)
             )
             in_channels = num_filters
-        
-        # Multi-Head Attention
-        self.attention = MultiHeadAttention(num_filters, num_heads, dropout)
-        
-        # Classification head
+
+        # Multi-Head Attention — V5: higher dropout (0.35) in attention
+        self.attention = MultiHeadAttention(num_filters, num_heads, dropout=dropout)
+
+        # Classification head — V5: higher dropout in dense layers
         self.global_pool = nn.AdaptiveAvgPool1d(1)
-        self.fc1 = nn.Linear(num_filters, 32)
-        self.dropout1 = nn.Dropout(0.3)
-        self.fc2 = nn.Linear(32, 16)
-        self.dropout2 = nn.Dropout(0.2)
-        self.fc3 = nn.Linear(16, 1)
+        self.fc1         = nn.Linear(num_filters, 32)
+        self.dropout1    = nn.Dropout(dropout)          # V5: was 0.3 hardcoded
+        self.fc2         = nn.Linear(32, 16)
+        self.dropout2    = nn.Dropout(dropout * 0.6)    # V5: was 0.2 hardcoded
+        self.fc3         = nn.Linear(16, 1)
         
     def forward(self, x):
         # x shape: (batch, seq_len, features) -> (batch, features, seq_len)
@@ -334,8 +340,12 @@ class TCNModel:
     SCALER_PATH = Path("models/tcn_scaler.pkl")
     
     def __init__(self, timeframe: str = "1h"):
-        self.timeframe = timeframe
-        self.sequence_length = SEQUENCE_LENGTHS.get(timeframe, DEFAULT_SEQUENCE_LENGTH)
+        self.timeframe       = timeframe
+        # V5: enforce sequence length cap to prevent attention overfitting
+        self.sequence_length = min(
+            SEQUENCE_LENGTHS.get(timeframe, DEFAULT_SEQUENCE_LENGTH),
+            MAX_SEQUENCE_LENGTH
+        )
         self.features = FEATURES
         self.model: Optional[TCNWithAttention] = None
         self.scaler = None

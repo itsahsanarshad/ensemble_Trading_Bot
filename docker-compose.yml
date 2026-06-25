@@ -1,10 +1,10 @@
 services:
-  trading-bot:
+  trading-bot-v2:
     build: .
-    container_name: ensemble_trading_bot
+    container_name: ensemble_trading_bot_v2
     restart: always
     ports:
-      - "5000:5000"
+      - "5001:5001"
     env_file:
       - .env
     volumes:
@@ -12,7 +12,7 @@ services:
       - ./logs:/app/logs
       - ./models:/app/models
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      test: ["CMD", "curl", "-f", "http://localhost:5001/"]
       interval: 30s
       timeout: 10s
       retries: 3
