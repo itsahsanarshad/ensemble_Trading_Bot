@@ -143,9 +143,29 @@ class TradingExecutor:
         if 0.5 <= regime_multiplier <= 1.5:  # sanity bounds — ignore extreme values
             position_size *= regime_multiplier
         
-        # Hard safety cap: never risk more than 10% of portfolio in a single trade
+        # Determine capital and the exchange's absolute minimum order value.
+        # Binance USDT spot pairs enforce a $5–10 USDT minimum notional;
+        # we use $6.00 as the safe floor (with a small buffer over $5).
         capital = self.paper_balance if self.mode == ExecutionMode.PAPER else risk_manager.current_capital
-        max_position_cap = capital * settings.trading.max_portfolio_risk
+        min_size = max(6.0, capital * 0.01)  # never go below $6
+        
+        # Low-balance fix 1: Prevent the regime / Kelly multiplier from pushing the
+        # calculated size below the exchange minimum.  On a $50–$100 account the BEAR
+        # 0.6× dampener would otherwise compress $6 → $3.60, causing every trade to be
+        # vetoed.  We simply upscale back to the floor when this happens.
+        if position_size < min_size:
+            logger.debug(
+                f"[LowBalance] {symbol}: calculated size ${position_size:.2f} < floor "
+                f"${min_size:.2f} — upscaling to floor."
+            )
+            position_size = min_size
+        
+        # Hard safety cap: never risk more than 10% of portfolio in a single trade.
+        # Low-balance fix 2: For micro accounts the 10% cap can itself be less than the
+        # exchange minimum (e.g. 10% of $50 = $5.00 < $6.00).  We ensure the cap is
+        # never smaller than the exchange floor so the position survives Check 5 in
+        # risk_manager.can_open_position().
+        max_position_cap = max(capital * settings.trading.max_portfolio_risk, min_size)
         if position_size > max_position_cap:
             position_size = max_position_cap
         

@@ -143,10 +143,22 @@ class RiskManager:
                 f"Would exceed max portfolio risk ({max_portfolio_risk:.0%})"
             )
         
-        # Check 5: Minimum position size (Binance minimum is $6 USDT)
+        # Check 5: Minimum position size (Binance USDT spot pairs enforce ~$5–10 notional).
+        # We use $6.00 as the safe floor (small buffer above the $5 hard limit).
         min_size = max(6.0, self.current_capital * 0.01)  # $6 minimum or 1% of capital
         if position_size < min_size:
-            return RiskCheck(False, f"Position size ${position_size:.2f} below minimum ${min_size:.2f}")
+            # Soft-buffer: if the size arrived only fractionally below the floor
+            # (e.g. due to floating-point drift after regime multiplier), round it up
+            # silently rather than hard-rejecting the trade.  The executor already
+            # performs the same upscaling; this is a belt-and-suspenders guard.
+            if (min_size - position_size) <= 0.10:
+                logger.debug(
+                    f"[LowBalance] {coin}: size ${position_size:.2f} within $0.10 of "
+                    f"floor ${min_size:.2f} — auto-rounding up."
+                )
+                position_size = min_size   # mutate local copy; caller re-uses it
+            else:
+                return RiskCheck(False, f"Position size ${position_size:.2f} below minimum ${min_size:.2f}")
         
         # Check 6: Consecutive losses reduction
         if self.consecutive_losses >= 5:
