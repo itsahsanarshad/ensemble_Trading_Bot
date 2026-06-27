@@ -63,6 +63,7 @@ def _make_position(
 def _make_pm(position: Position) -> PositionManager:
     pm = PositionManager.__new__(PositionManager)
     pm.positions = {position.trade_id: position}
+    pm._last_hp_db_write = {}
     return pm
 
 

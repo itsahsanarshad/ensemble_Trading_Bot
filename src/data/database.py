@@ -309,32 +309,30 @@ class DatabaseManager:
         """
         session = self.get_session()
         try:
-            count = 0
+            from sqlalchemy import insert
+            values_list = []
             for candle in data:
-                existing = session.query(PriceData).filter(
-                    PriceData.timestamp == candle["timestamp"],
-                    PriceData.coin == coin,
-                    PriceData.timeframe == timeframe
-                ).first()
-                
-                if not existing:
-                    price_data = PriceData(
-                        timestamp=candle["timestamp"],
-                        coin=coin,
-                        timeframe=timeframe,
-                        open=candle["open"],
-                        high=candle["high"],
-                        low=candle["low"],
-                        close=candle["close"],
-                        volume=candle["volume"],
-                        quote_volume=candle.get("quote_volume"),
-                        num_trades=candle.get("num_trades"),
-                    )
-                    session.add(price_data)
-                    count += 1
+                values_list.append({
+                    "timestamp": candle["timestamp"],
+                    "coin": coin,
+                    "timeframe": timeframe,
+                    "open": candle["open"],
+                    "high": candle["high"],
+                    "low": candle["low"],
+                    "close": candle["close"],
+                    "volume": candle["volume"],
+                    "quote_volume": candle.get("quote_volume"),
+                    "num_trades": candle.get("num_trades"),
+                })
             
+            if not values_list:
+                return 0
+
+            # M-3 FIX: Use bulk INSERT OR IGNORE instead of O(N) individual SELECT/INSERT queries
+            stmt = insert(PriceData).values(values_list).prefix_with("OR IGNORE")
+            result = session.execute(stmt)
             session.commit()
-            return count
+            return result.rowcount if hasattr(result, "rowcount") else len(values_list)
         except Exception as e:
             session.rollback()
             raise e
@@ -528,6 +526,7 @@ class DatabaseManager:
                 ModelPrediction.symbol == symbol,
                 ModelPrediction.predicted_at >= window_start,
                 ModelPrediction.predicted_at <= window_end,
+                ModelPrediction.signal == "buy",  # M-6 FIX: Only backfill 'buy' predictions, not 'hold' or 'sell'
                 ModelPrediction.outcome == None  # only unfilled
             ).all()
             

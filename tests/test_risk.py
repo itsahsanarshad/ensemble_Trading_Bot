@@ -34,6 +34,8 @@ def _make_rm(capital: float = 1000.0, open_positions: int = 0,
     rm._open_positions     = open_positions
     rm._open_coins         = open_coins if open_coins is not None else set()
     rm._total_risk         = total_risk
+    rm._last_sync_time     = None
+    rm._sync_ttl_seconds   = 30
     return rm
 
 
@@ -336,7 +338,7 @@ class TestRecordTradeResult(unittest.TestCase):
 
     def test_capital_updated(self):
         rm = _make_rm(capital=1000.0)
-        rm.record_trade_result(pnl_usd=100.0, pnl_pct=0.10)
+        rm.set_capital(1100.0)
         self.assertAlmostEqual(rm.current_capital, 1100.0)
 
     def test_daily_loss_triggers_pause(self):

@@ -66,6 +66,9 @@ class PositionManager:
     def __init__(self):
         """Initialize position manager."""
         self.positions: Dict[str, Position] = {}
+        # M-4 FIX: Track when we last persisted highest_price to DB per trade
+        # so we don't write on every 30-second tick during a rally.
+        self._last_hp_db_write: Dict[str, datetime] = {}
         # Delay loading until after database is guaranteed to be ready
         # This is now handled by the bot's setup sequence
     
@@ -354,7 +357,10 @@ class PositionManager:
                 pass  # Never let this block trade close logic
 
             # Update risk manager
+            # NOTE: pnl_pct here is a fraction (e.g. 0.07 = +7%), NOT a percent.
+            # record_trade_result() expects a fraction for sign comparison.
             risk_manager.record_trade_result(pnl_usd, pnl_pct)
+            risk_manager._invalidate_sync_cache()
 
             # Remove from active positions
             del self.positions[trade_id]
@@ -394,10 +400,15 @@ class PositionManager:
         
         position = self.positions[trade_id]
         
-        # Update highest price
+        # Update highest price (in-memory always; DB write throttled to 5 min)
         if current_price > position.highest_price:
             position.highest_price = current_price
-            db.update_trade(trade_id, highest_price=current_price)
+            # M-4 FIX: Only persist to DB at most once every 5 minutes
+            now = datetime.utcnow()
+            last_write = self._last_hp_db_write.get(trade_id)
+            if last_write is None or (now - last_write).total_seconds() >= 300:
+                db.update_trade(trade_id, highest_price=current_price)
+                self._last_hp_db_write[trade_id] = now
         
         pnl_pct = (current_price - position.entry_price) / position.entry_price
 

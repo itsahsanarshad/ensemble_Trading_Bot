@@ -234,30 +234,37 @@ class TradingExecutor:
         price: float,
         size: float
     ) -> OrderResult:
-        """Execute paper buy order."""
-        # Calculate available balance (total - positions at risk)
-        from src.trading.risk import risk_manager
-        risk_manager._sync_with_database()
+        """Execute paper buy order.
+
+        C-4 FIX: Removed the redundant _sync_with_database() call here.
+        can_open_position() already synced moments before this is called.
+        We optimistically subtract `size` from the balance calculation so
+        concurrent signals for different coins cannot both over-spend.
+        """
+        # Available = cash minus what's already committed to open positions
         available_balance = self.paper_balance - risk_manager._total_risk
-        
+
         if size > available_balance:
             return OrderResult(
-                False, 
+                False,
                 message=f"Insufficient available balance (${available_balance:.2f} available, ${size:.2f} needed)"
             )
-        
+
         # Simulate small slippage (0.1%)
         fill_price = price * 1.001
-        
+
         self.paper_balance -= size
-        
+        # Immediately reflect this commitment so a concurrent scan cannot
+        # re-use the same funds (belt-and-suspenders guard alongside risk_manager).
+        risk_manager._total_risk += size
+
         order_id = f"PAPER_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{symbol[:4]}"
-        
+
         logger.info(
             f"📝 PAPER BUY | {symbol} @ ${fill_price:.4f} | "
             f"Size: ${size:.2f} | Balance: ${self.paper_balance:.2f}"
         )
-        
+
         return OrderResult(
             success=True,
             order_id=order_id,
@@ -272,23 +279,30 @@ class TradingExecutor:
         price: float,
         size: float
     ) -> OrderResult:
-        """Execute paper sell order."""
-        # Simulate small slippage (0.1%)
-        fill_price = price * 0.999
-        
-        self.paper_balance += size * (fill_price / price)
-        
+        """Execute paper sell order.
+
+        `size` is the USDT exit value to credit back to the balance.
+
+        C-2 FIX: Slippage is applied once to the USDT amount.
+        Old code: size * (fill_price / price) = size * 0.999 — double-applied
+        slippage because fill_price was already price * 0.999.
+        """
+        # 0.1% slippage on the USDT exit value
+        credited = size * 0.999
+
+        self.paper_balance += credited
+
         order_id = f"PAPER_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{symbol[:4]}_SELL"
-        
+
         logger.info(
-            f"📝 PAPER SELL | {symbol} @ ${fill_price:.4f} | "
-            f"Size: ${size:.2f} | Balance: ${self.paper_balance:.2f}"
+            f"📝 PAPER SELL | {symbol} @ ${price:.4f} | "
+            f"Value: ${size:.2f} (credited: ${credited:.2f}) | Balance: ${self.paper_balance:.2f}"
         )
-        
+
         return OrderResult(
             success=True,
             order_id=order_id,
-            filled_price=fill_price,
+            filled_price=price,
             filled_size=size,
             message="Paper sell executed"
         )
@@ -299,45 +313,31 @@ class TradingExecutor:
         price: float,
         size: float
     ) -> OrderResult:
-        """Execute live buy order on Binance."""
+        """Execute live buy order on Binance.
+
+        L-4 FIX: Removed dead `quantity = size / price` computation block.
+        We use quoteOrderQty=size (USDT amount) so Binance calculates the
+        exact coin quantity internally. The precision rounding code was
+        computing a value that was never used.
+        """
         try:
             from binance.client import Client
-            
+
             client = Client(
                 settings.exchange.binance_api_key,
                 settings.exchange.binance_secret_key,
                 testnet=settings.exchange.use_testnet,
                 requests_params={'timeout': 10}
             )
-            
-            # Calculate quantity with proper precision
-            try:
-                # Get symbol info for precision
-                symbol_info = client.get_symbol_info(symbol)
-                precision = 6  # Default
-                
-                if symbol_info:
-                    # Get LOT_SIZE filter for step size
-                    lot_size = next((f for f in symbol_info['filters'] if f['filterType'] == 'LOT_SIZE'), None)
-                    if lot_size:
-                        step_size = float(lot_size['stepSize'])
-                        # Calculate precision from step size
-                        precision = len(str(step_size).rstrip('0').split('.')[-1]) if '.' in str(step_size) else 0
-                
-                quantity = size / price
-                quantity = round(quantity, precision)
-            except Exception as e:
-                logger.warning(f"Could not get precision for {symbol}, using default: {e}")
-                quantity = round(size / price, 6)
-            
-            # Place market order
+
+            # Place market order using USDT quote quantity (Binance converts internally)
             order = client.create_order(
                 symbol=symbol,
                 side="BUY",
                 type="MARKET",
-                quoteOrderQty=size  # Buy with USDT amount
+                quoteOrderQty=size
             )
-            
+
             # Get fill details
             fills = order.get("fills", [])
             if fills:
@@ -346,12 +346,12 @@ class TradingExecutor:
                 avg_price = avg_price / total_qty if total_qty > 0 else price
             else:
                 avg_price = price
-            
+
             logger.info(
                 f"🔴 LIVE BUY | {symbol} @ ${avg_price:.4f} | "
                 f"Size: ${size:.2f} | OrderId: {order['orderId']}"
             )
-            
+
             return OrderResult(
                 success=True,
                 order_id=str(order["orderId"]),
@@ -359,7 +359,7 @@ class TradingExecutor:
                 filled_size=float(order.get("cummulativeQuoteQty", size)),
                 message="Live order executed"
             )
-            
+
         except Exception as e:
             logger.error(f"Live buy error: {e}")
             return OrderResult(False, message=str(e))

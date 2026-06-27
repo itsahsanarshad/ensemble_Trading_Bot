@@ -265,10 +265,16 @@ def _rsi_divergence(close: pd.Series, rsi_series: pd.Series, lookback: int = 14)
     try:
         prices = close.values[-lookback:]
         rsis   = rsi_series.values[-lookback:]
-        price_min_idx = np.argmin(prices)
-        price_max_idx = np.argmax(prices)
-        bullish_div = prices[-1] < prices[price_min_idx] and rsis[-1] > rsis[price_min_idx]
-        bearish_div = prices[-1] > prices[price_max_idx] and rsis[-1] < rsis[price_max_idx]
+        # M-7 FIX: Exclude the last bar to find the prior trough/troughs
+        prior_prices = prices[:-1]
+        prior_rsis   = rsis[:-1]
+        if len(prior_prices) > 0:
+            price_min_idx = np.argmin(prior_prices)
+            price_max_idx = np.argmax(prior_prices)
+            bullish_div = prices[-1] <= prior_prices[price_min_idx] and rsis[-1] > prior_rsis[price_min_idx]
+            bearish_div = prices[-1] >= prior_prices[price_max_idx] and rsis[-1] < prior_rsis[price_max_idx]
+        else:
+            bullish_div = bearish_div = False
         return {"bullish_divergence": bool(bullish_div), "bearish_divergence": bool(bearish_div)}
     except Exception:
         return {"bullish_divergence": False, "bearish_divergence": False}
@@ -277,7 +283,12 @@ def calculate_vwap(df: pd.DataFrame) -> dict:
     try:
         close, high, low, volume = df["close"], df["high"], df["low"], df["volume"]
         typical_price = (high + low + close) / 3
-        vwap          = (typical_price * volume).cumsum() / volume.cumsum()
+        # M-2 FIX: Use rolling 24-bar window for VWAP calculation rather than cumsum
+        rolling_tp_vol = (typical_price * volume).rolling(24).sum()
+        rolling_vol = volume.rolling(24).sum()
+        vwap = rolling_tp_vol / rolling_vol
+        # Fall back to cumsum if not enough bars for rolling window
+        vwap = vwap.fillna((typical_price * volume).cumsum() / volume.cumsum())
         vwap_val      = float(vwap.iloc[-1])
         price         = float(close.iloc[-1])
         vwap_dist     = round(((price - vwap_val) / vwap_val) * 100, 2)

@@ -293,7 +293,8 @@ def augment_sequences(X: np.ndarray, y: np.ndarray, augment_factor: int = 3) -> 
     
     # 1. Gaussian noise injection
     if augment_factor >= 1:
-        noise_std = 0.02
+        # L-6 FIX: Set noise_std to 0.015 (was 0.02) as documented in V5
+        noise_std = 0.015
         noisy = X + np.random.normal(0, noise_std, X.shape)
         augmented_X.append(noisy.astype(np.float32))
         augmented_y.append(y)
@@ -336,8 +337,10 @@ class TCNModel:
     - Prediction with confidence
     """
     
-    MODEL_PATH = Path("models/tcn_model.pt")
-    SCALER_PATH = Path("models/tcn_scaler.pkl")
+    # H-2 FIX: Make paths absolute relative to project root
+    _PROJECT_ROOT = Path(__file__).parent.parent.parent
+    MODEL_PATH  = _PROJECT_ROOT / "models" / "tcn_model.pt"
+    SCALER_PATH = _PROJECT_ROOT / "models" / "tcn_scaler.pkl"
     
     def __init__(self, timeframe: str = "1h"):
         self.timeframe       = timeframe
@@ -390,7 +393,11 @@ class TCNModel:
     def set_timeframe(self, timeframe: str) -> None:
         """Set timeframe and adjust sequence length."""
         self.timeframe = timeframe
-        self.sequence_length = SEQUENCE_LENGTHS.get(timeframe, DEFAULT_SEQUENCE_LENGTH)
+        # M-5 FIX: Enforce MAX_SEQUENCE_LENGTH cap on timeframe shift
+        self.sequence_length = min(
+            SEQUENCE_LENGTHS.get(timeframe, DEFAULT_SEQUENCE_LENGTH),
+            MAX_SEQUENCE_LENGTH
+        )
         logger.info(f"TCN timeframe set to {timeframe}, sequence_length={self.sequence_length}")
     
     def prepare_sequence(self, df) -> Optional[np.ndarray]:

@@ -49,17 +49,45 @@ class RiskManager:
         self.pause_reason = ""
         self.pause_until = None
         self.consecutive_losses = 0
-        
+
+        # H-4 FIX: Cache timestamp for _sync_with_database (30s TTL)
+        self._last_sync_time: Optional[datetime] = None
+        self._sync_ttl_seconds: int = 30
+        self._open_positions: int = 0
+        self._open_coins: set = set()
+        self._total_risk: float = 0.0
+
+        # L-5 FIX: Load daily_start_capital from persisted BotState so the
+        # 8% daily-loss guard is correct even after a restart.
+        try:
+            from src.data.state import load_state
+            state = load_state()
+            if state and state.get("paper_balance"):
+                self.daily_start_capital = state["paper_balance"]
+                self.current_capital     = state["paper_balance"]
+        except Exception:
+            pass  # Fall back to settings default
+
         # Load actual state from database
         self._sync_with_database()
     
     def _sync_with_database(self) -> None:
-        """Sync state with database."""
+        """Sync state with database.
+
+        H-4 FIX: Results are cached for 30 seconds.  This prevents the method
+        from firing 24+ times per scan (once per coin in can_open_position).
+        Call force=True to bypass the cache when a trade has just been recorded.
+        """
+        now = datetime.utcnow()
+        if (self._last_sync_time is not None
+                and (now - self._last_sync_time).total_seconds() < self._sync_ttl_seconds):
+            return  # Still within TTL — use cached values
+
         try:
             # Get today's stats
             today_stats = db.get_daily_stats()
             self.daily_pnl = today_stats.get("pnl", 0)
-            
+
             # Get open positions value
             open_trades = db.get_open_trades()
             self._open_positions = len(open_trades)
@@ -68,31 +96,30 @@ class RiskManager:
                 (t.remaining_size if t.remaining_size is not None else t.position_size)
                 for t in open_trades
             )
-            
+
+            self._last_sync_time = now
+
         except Exception as e:
             logger.warning(f"Could not sync with database: {e}")
             self._open_positions = 0
             self._open_coins = set()
             self._total_risk = 0
+
+    def _invalidate_sync_cache(self) -> None:
+        """Force the next _sync_with_database() call to hit the DB."""
+        self._last_sync_time = None
     
     def set_capital(self, capital: float) -> None:
         """
-        Set current capital (for paper trading with custom balance).
-        Only updates daily_start_capital if it hasn't been set yet today.
-        
-        Args:
-            capital: Current capital amount
+        Set current capital (for paper trading).
+
+        C-3 FIX: Removed the guard condition that froze daily_start_capital
+        after the first call.  daily_start_capital is now ONLY updated by
+        reset_daily() (called at midnight).  set_capital() only updates
+        current_capital, which is the intra-day running balance.
         """
-        # Always update current capital
         self.current_capital = capital
-        
-        # Only set daily_start_capital if it's still the default value
-        # This preserves the original balance for the day
-        if self.daily_start_capital == settings.trading.initial_capital:
-            self.daily_start_capital = capital
-            logger.info(f"Risk manager daily start capital set to ${capital:.2f}")
-        else:
-            logger.debug(f"Risk manager current capital updated to ${capital:.2f}")
+        logger.debug(f"Risk manager current capital updated to ${capital:.2f}")
     
     def can_open_position(
         self,
@@ -294,17 +321,20 @@ class RiskManager:
     def record_trade_result(self, pnl_usd: float, pnl_pct: float) -> None:
         """
         Record a trade result and update risk state.
-        
+
         Args:
             pnl_usd: Profit/loss in USD
-            pnl_pct: Profit/loss percentage
+            pnl_pct: Profit/loss as a fraction (e.g. 0.07 = +7%).  NOT a percent.
         """
         self.daily_pnl += pnl_usd
-        self.current_capital += pnl_usd
-        
+        # NOTE: current_capital is NOT updated here (M-1 fix).
+        # It is kept authoritative via set_capital() which reads paper_balance
+        # after every trade.  Updating it here as well caused TP1 profit
+        # double-counting when a partial exit preceded the full exit.
+
         if pnl_pct < 0:
             self.consecutive_losses += 1
-            
+
             if self.consecutive_losses >= 5:
                 log_risk_event(
                     "Consecutive Losses",
@@ -312,11 +342,15 @@ class RiskManager:
                 )
         else:
             self.consecutive_losses = 0
-        
+
         # Check if daily loss limit hit
         daily_pnl_pct = self.daily_pnl / self.daily_start_capital
         if daily_pnl_pct <= -settings.trading.daily_loss_limit:
             self._pause_trading("Daily loss limit reached", hours=24)
+
+        # Invalidate DB cache so the next can_open_position() call sees the
+        # updated position list immediately.
+        self._invalidate_sync_cache()
     
     def _pause_trading(self, reason: str, hours: int = 24) -> None:
         """Pause trading for specified duration."""
@@ -408,11 +442,13 @@ class RiskManager:
     
     def reset_daily(self) -> None:
         """Reset daily counters (call at midnight)."""
+        # Use current_capital as the new day's starting point
         self.daily_start_capital = self.current_capital
         self.daily_pnl = 0.0
         self.trading_paused = False
         self.pause_reason = ""
-        logger.info("Daily risk counters reset")
+        self._invalidate_sync_cache()
+        logger.info(f"Daily risk counters reset. Start capital: ${self.daily_start_capital:.2f}")
 
 
 # Global risk manager instance

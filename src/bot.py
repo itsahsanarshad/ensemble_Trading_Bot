@@ -155,7 +155,12 @@ class TradingBot:
     def run_once(self) -> Dict:
         """
         Run a single iteration of the bot.
-        
+
+        H-3 FIX: Previously this called executor.scan_and_execute() which
+        is a duplicate scan path.  Now it uses the same self.scan_for_signals()
+        and self.monitor_positions() methods that bot.run() schedules, so
+        there is exactly one scan per invocation.
+
         Returns:
             Dictionary with iteration results
         """
@@ -165,20 +170,19 @@ class TradingBot:
             "positions_monitored": False,
             "trades": []
         }
-        
+
         # Update data
         self.update_data()
         results["data_updated"] = True
-        
-        # Scan for signals
-        scan_result = executor.scan_and_execute(WATCHLIST)
+
+        # Scan for signals (same path as continuous run)
+        self.scan_for_signals()
         results["signals_checked"] = True
-        results["trades"] = scan_result.get("trades", [])
-        
+
         # Monitor positions
         self.monitor_positions()
         results["positions_monitored"] = True
-        
+
         return results
     
     def run(self) -> None:

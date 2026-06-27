@@ -50,6 +50,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 import numpy as np
+import pandas as pd
 import pickle
 import json
 
@@ -157,7 +158,8 @@ class ModelPerformanceTracker:
         total = sum(adjusted.values())
         return {k: v / total for k, v in adjusted.items()}
 
-    def _trim_predictions(self, max_size: int = 500):
+    def _trim_predictions(self, max_size: int = 200):
+        """Keep the last max_size predictions (aligned with save limit)."""
         if len(self.predictions) > max_size:
             self.predictions = self.predictions[-max_size:]
 
@@ -291,17 +293,31 @@ class MarketRegimeDetector:
             price_vs_ema = (close.iloc[-1] - ema_50.iloc[-1]) / ema_50.iloc[-1]
             recent_ret   = (close.iloc[-1] - close.iloc[-10]) / close.iloc[-10]
 
-            tr       = np.maximum(high - low, np.maximum(
-                np.abs(high - close.shift(1)), np.abs(low - close.shift(1))
-            ))
-            atr      = tr.rolling(14).mean()
+            # H-5 FIX: Use proper Wilder EMA smoothing for ADX (not box-filter convolution)
+            prev_close = close.shift(1)
+            tr_s = pd.concat([
+                high - low,
+                (high - prev_close).abs(),
+                (low  - prev_close).abs(),
+            ], axis=1).max(axis=1)
+            atr_s    = tr_s.ewm(com=13, min_periods=14).mean()   # Wilder EMA, period=14
             up_move  = high - high.shift(1)
             down_move = low.shift(1) - low
-            plus_dm  = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
-            minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0)
-            plus_di  = 100 * np.convolve(plus_dm,  np.ones(14) / 14, mode="valid")[-1] / (atr.iloc[-1] + 1e-10)
-            minus_di = 100 * np.convolve(minus_dm, np.ones(14) / 14, mode="valid")[-1] / (atr.iloc[-1] + 1e-10)
-            adx      = 100 * abs(plus_di - minus_di) / (plus_di + minus_di + 1e-10)
+            plus_dm_s  = pd.Series(
+                np.where((up_move > down_move) & (up_move > 0), up_move, 0.0),
+                index=high.index
+            ).ewm(com=13, min_periods=14).mean()
+            minus_dm_s = pd.Series(
+                np.where((down_move > up_move) & (down_move > 0), down_move, 0.0),
+                index=high.index
+            ).ewm(com=13, min_periods=14).mean()
+            atr_val   = float(atr_s.iloc[-1]) if atr_s.iloc[-1] > 0 else 1e-10
+            plus_di   = 100 * float(plus_dm_s.iloc[-1])  / atr_val
+            minus_di  = 100 * float(minus_dm_s.iloc[-1]) / atr_val
+            dx        = 100 * abs(plus_di - minus_di) / (plus_di + minus_di + 1e-10)
+            # Smooth DX with Wilder EMA to get true ADX
+            dx_series = 100 * (plus_dm_s - minus_dm_s).abs() / (plus_dm_s + minus_dm_s + 1e-10)
+            adx       = float(dx_series.ewm(com=13, min_periods=14).mean().iloc[-1])
 
             if price_vs_ema > 0.02 and recent_ret > 0.03 and adx > 20:
                 regime = "BULL"
@@ -322,6 +338,9 @@ class MarketRegimeDetector:
                     "price_vs_ema":  float(price_vs_ema),
                     "adx":           float(adx),
                 })
+                # L-3 FIX: Trim regime_history to prevent unbounded growth
+                if len(self.regime_history) > 100:
+                    self.regime_history = self.regime_history[-100:]
                 logger.info(f"Market regime: {regime} (EMA: {price_vs_ema:.1%}, ADX: {adx:.0f})")
 
             return regime
@@ -442,6 +461,11 @@ class ConsensusEnsemble:
 
         self.latest_scan: List[Dict] = []
         self._update_weights_from_performance()
+
+        # C-1 FIX: Cache for get_exit_signal() to avoid full inference every 30s
+        # Key: symbol → {"result": ConsensusSignal, "ts": datetime}
+        self._exit_signal_cache: Dict[str, Dict] = {}
+        self._exit_cache_ttl_seconds = 300  # 5 minutes
 
     def _update_weights_from_performance(self):
         """Adjust weights based on rolling performance of each model."""
@@ -608,22 +632,35 @@ class ConsensusEnsemble:
     def get_exit_signal(self, symbol: str, entry_price: float, current_price: float) -> Tuple[str, str]:
         """
         Check whether an open position should be closed by models.
-        Called by executor during position monitoring.
+        Called by executor during position monitoring (every 30s).
+
+        C-1 FIX: Results are cached per symbol for 5 minutes so we don't run
+        all three models on every 30-second monitor tick.
         """
         try:
-            result  = self.analyze(symbol)
+            now = datetime.utcnow()
+            cached = self._exit_signal_cache.get(symbol)
+            if (cached is None
+                    or (now - cached["ts"]).total_seconds() > self._exit_cache_ttl_seconds):
+                result = self.analyze(symbol)
+                self._exit_signal_cache[symbol] = {"result": result, "ts": now}
+            else:
+                result = cached["result"]
+
             pnl_pct = (current_price - entry_price) / entry_price
 
             # Both ML and TA turned bearish
-            ml_bearish  = result.ml_signal  and result.ml_signal.signal  == "sell"
-            ta_bearish  = result.ta_signal  and result.ta_signal.blocked
+            ml_bearish = result.ml_signal and result.ml_signal.signal == "sell"
+            ta_bearish = result.ta_signal and result.ta_signal.blocked
 
             if ml_bearish and ta_bearish:
                 return "exit", "ML + TA structural both bearish"
 
-            # Confidence collapsed while in profit
-            if pnl_pct > 0.03 and result.confidence < 0.38:
-                return "exit", "Confidence collapsed while in profit"
+            # H-1 FIX: Use ml_signal.confidence (real ML score) not result.confidence
+            # which is always 0.0 for HOLD signals, causing spurious exits.
+            ml_conf = result.ml_signal.confidence if result.ml_signal else 1.0
+            if pnl_pct > 0.03 and ml_conf < 0.38:
+                return "exit", f"ML confidence collapsed ({ml_conf:.2f}) while in profit"
 
             return "hold", ""
         except Exception as e:

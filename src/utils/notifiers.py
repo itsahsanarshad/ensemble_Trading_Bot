@@ -172,15 +172,22 @@ class DiscordNotifier:
 
 def _format_exit_reason(reason: str) -> str:
     """Human-readable exit reason label."""
-    return {
-        "TAKE_PROFIT": "✅ Take Profit (TP2)",
-        "STOP_LOSS": "🛑 Stop Loss Hit",
-        "TRAILING_STOP": "📉 Trailing Stop",
-        "TIME_STOP": "⏱️ Time Stop (24h)",
-        "PARTIAL_EXIT": "🎯 TP1 Partial Exit",
-        "SIGNAL_EXIT": "📡 Signal Reversal",
-        "MANUAL": "🖐 Manual Close",
-    }.get(str(reason), str(reason))
+    reason_str = str(reason).upper()
+    if "TAKE_PROFIT" in reason_str or "TP2" in reason_str or "TAKE PROFIT" in reason_str:
+        return f"✅ Take Profit (TP2) — {reason}"
+    if "STOP_LOSS" in reason_str or "STOP LOSS" in reason_str:
+        return f"🛑 Stop Loss Hit — {reason}"
+    if "TRAILING_STOP" in reason_str or "TRAILING" in reason_str:
+        return f"📉 Trailing Stop — {reason}"
+    if "TIME_STOP" in reason_str or "TIME STOP" in reason_str:
+        return f"⏱️ Time Stop — {reason}"
+    if "PARTIAL" in reason_str:
+        return f"🎯 TP1 Partial Exit — {reason}"
+    if "SIGNAL" in reason_str:
+        return f"📡 Signal Reversal — {reason}"
+    if "MANUAL" in reason_str:
+        return f"🖐 Manual Close — {reason}"
+    return reason
 
 
 # Global instance
