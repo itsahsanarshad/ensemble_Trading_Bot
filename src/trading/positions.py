@@ -379,40 +379,90 @@ class PositionManager:
             db.update_trade(trade_id, highest_price=current_price)
         
         pnl_pct = (current_price - position.entry_price) / position.entry_price
-        
+
         # Check stop loss
         if current_price <= position.stop_loss:
             return ("stop_loss", f"Stop loss hit at ${current_price:.4f}")
-        
+
+        # ─────────────────────────────────────────────────────────────────
+        # Minimum-order-size guard
+        # Binance enforces a ~$6 minimum notional per order.
+        # A partial exit sells 50 % of the position, so BOTH the exit leg
+        # AND the remaining leg must be >= $6 USDT.  That means the full
+        # position must be >= 2 × $6 = $12 USDT for a partial exit to be safe.
+        # If the position is too small we skip the partial exit entirely and
+        # instead activate a tight 1.5 % trailing stop once TP1 is hit, so
+        # we still lock in profit without violating exchange rules.
+        # ─────────────────────────────────────────────────────────────────
+        MIN_ORDER_USDT = 6.0
+        is_small_position = position.position_size < (2 * MIN_ORDER_USDT)  # < $12
+
         # ✅ CHECK TP1 FIRST (partial exit + breakeven SL), THEN TP2 (full exit)
         # This is critical: if TP2 is checked first and its value was ever incorrect
         # (Bug 1), the full position closes before TP1 logic runs.
-        
+
         # Check partial exit (TP1 = +3.5%)
         partial_target = risk_manager.get_partial_exit_price(position.entry_price)
         if current_price >= partial_target and not position.partial_exit_done:
-            # Move SL to breakeven on TP1 hit
-            position.stop_loss = position.entry_price
-            db.update_trade(trade_id, stop_loss_price=position.entry_price)
-            logger.info(f"[{trade_id}] TP1 Hit @ ${current_price:.4f}! SL moved to Breakeven (${position.entry_price:.4f})")
-            return ("partial_exit", f"TP1 hit at ${current_price:.4f}. SL moved to Entry.")
-        
+            if is_small_position:
+                # Position is too small to split safely — skip partial exit.
+                # Log once (only when highest_price first crosses partial_target).
+                if position.highest_price <= partial_target * 1.0001:
+                    logger.info(
+                        f"[{trade_id}] TP1 hit for {position.coin} @ ${current_price:.4f} "
+                        f"but position ${position.position_size:.2f} < ${2 * MIN_ORDER_USDT:.0f} minimum "
+                        f"— skipping partial exit. Tight trailing stop will activate."
+                    )
+                # Fall through — tight trailing stop logic below will engage.
+            else:
+                # Normal-sized position: sell half and move SL to breakeven.
+                position.stop_loss = position.entry_price
+                db.update_trade(trade_id, stop_loss_price=position.entry_price)
+                logger.info(
+                    f"[{trade_id}] TP1 Hit @ ${current_price:.4f}! "
+                    f"SL moved to Breakeven (${position.entry_price:.4f})"
+                )
+                return ("partial_exit", f"TP1 hit at ${current_price:.4f}. SL moved to Entry.")
+
         # Check full take profit (TP2 = +7.0%)
         if current_price >= position.take_profit:
             return ("take_profit", f"Take profit TP2 hit at ${current_price:.4f}")
-        
-        # Check trailing stop
-        should_trail, trail_price = risk_manager.calculate_trailing_stop(
-            position.entry_price,
-            current_price,
-            position.highest_price
-        )
-        
+
+        # ─────────────────────────────────────────────────────────────────
+        # Trailing stop logic
+        # Small positions that have reached TP1 use a tight 1.5 % trail
+        # (anchored to highest_price) to protect accumulated profit.
+        # All other positions use the standard risk_manager trail (activates
+        # at +5 %, trails by 2 %).
+        # In both cases the trailing stop only ever ratchets upward.
+        # ─────────────────────────────────────────────────────────────────
+        TIGHT_TRAIL_PCT = 0.015  # 1.5 % trail distance for small positions
+
+        if is_small_position and position.highest_price >= partial_target:
+            # Tight trailing stop: engage from the moment TP1 is hit.
+            should_trail = True
+            trail_price = position.highest_price * (1.0 - TIGHT_TRAIL_PCT)
+            if position.trailing_stop is None:
+                logger.info(
+                    f"[{trade_id}] Tight trailing stop ({TIGHT_TRAIL_PCT:.1%}) activated for "
+                    f"small position {position.coin} — highest: ${position.highest_price:.4f}, "
+                    f"stop: ${trail_price:.4f}"
+                )
+        else:
+            # Standard trailing stop via risk_manager.
+            should_trail, trail_price = risk_manager.calculate_trailing_stop(
+                position.entry_price,
+                current_price,
+                position.highest_price
+            )
+
         if should_trail:
-            position.trailing_stop = trail_price
-            db.update_trade(trade_id, trailing_stop_price=trail_price)
-            
-            if current_price <= trail_price:
+            # Only ratchet the trailing stop upward; never lower it.
+            if position.trailing_stop is None or trail_price > position.trailing_stop:
+                position.trailing_stop = trail_price
+                db.update_trade(trade_id, trailing_stop_price=trail_price)
+
+            if current_price <= position.trailing_stop:
                 return ("trailing_stop", f"Trailing stop hit at ${current_price:.4f}")
         
         # Check time stop — uses TIME_STOP_HOURS from settings (.env)

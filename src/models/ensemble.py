@@ -124,12 +124,12 @@ class ModelPerformanceTracker:
         self._trim_predictions()
         self.save()
 
-    def record_outcome(self, symbol: str, outcome: str, pnl: float = 0.0, lookback_hours: int = 8):
+    def record_outcome(self, symbol: str, outcome: str, pnl: float = 0.0, lookback_hours: int = 48):
         cutoff = datetime.utcnow() - timedelta(hours=lookback_hours)
         for pred in self.predictions:
             if (pred["symbol"] == symbol and pred["outcome"] is None
                     and datetime.fromisoformat(pred["timestamp"]) > cutoff):
-                pred["outcome"] = outcome
+                pred["outcome"] = outcome.lower() if outcome else None
                 pred["pnl"]     = pnl
         self._calculate_win_rates()
         self.save()
@@ -628,6 +628,16 @@ class ConsensusEnsemble:
             return "hold", ""
         except Exception as e:
             return "hold", f"Exit check error: {e}"
+
+    # ------------------------------------------------------------------
+    # Trade Outcome Recording
+    # ------------------------------------------------------------------
+    def record_trade_outcome(self, symbol: str, outcome: str, pnl: float = 0.0):
+        """
+        Record the outcome of a trade to update model performance tracking.
+        """
+        self.performance_tracker.record_outcome(symbol, outcome, pnl)
+        self._update_weights_from_performance()
 
     # ------------------------------------------------------------------
     # Batch scanner
