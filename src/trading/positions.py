@@ -358,20 +358,21 @@ class PositionManager:
                 duration_str=duration_str
             )
 
+            # Update risk manager and backfill stats using overall trade return
+            total_pnl_pct = total_pnl_usd / position.position_size
+
             # Backfill prediction outcomes in DB (makes model accuracy stats real)
             try:
                 db.backfill_prediction_outcomes(
                     symbol=position.coin,
                     trade_id=trade_id,
                     outcome=outcome,
-                    pnl_pct=pnl_pct * 100,
+                    pnl_pct=total_pnl_pct * 100,
                     entry_time=position.entry_time
                 )
             except Exception:
                 pass  # Never let this block trade close logic
 
-            # Update risk manager
-            total_pnl_pct = total_pnl_usd / position.position_size
             risk_manager.record_trade_result(total_pnl_usd, total_pnl_pct)
             risk_manager._invalidate_sync_cache()
 
