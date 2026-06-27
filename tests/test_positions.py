@@ -489,7 +489,9 @@ class TestPartialExitPnLAccumulation(unittest.TestCase):
         result = pm.close_position(pos.trade_id, exit_price=100.0, exit_reason="STOP_LOSS")
 
         # PnL expected to be first_leg ($0.70) + final_leg ($0.0) = $0.70
+        # return percentage = 0.70 / 20.0 = 0.035 (3.5%)
         self.assertAlmostEqual(result["pnl_usd"], 0.70)
+        self.assertAlmostEqual(result["pnl_pct"], 0.035)
 
         # Verify update_trade got total_pnl_usd
         _db_mock.update_trade.assert_any_call(
@@ -502,10 +504,11 @@ class TestPartialExitPnLAccumulation(unittest.TestCase):
             status="CLOSED"
         )
 
-        # Verify discord alert sent total pnl_usd
+        # Verify discord alert sent total pnl_usd and total pnl_pct (3.5%)
         _disc_mock.send_sell_alert.assert_called_once()
         args, kwargs = _disc_mock.send_sell_alert.call_args
         self.assertAlmostEqual(kwargs.get("pnl_usd"), 0.70)
+        self.assertAlmostEqual(kwargs.get("pnl_pct"), 3.5)
 
 
 if __name__ == "__main__":

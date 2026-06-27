@@ -339,6 +339,8 @@ class PositionManager:
             from src.models.ensemble import ensemble
             outcome = "WIN" if total_pnl_usd > 0 else "LOSS"
             ensemble.record_trade_outcome(position.coin, outcome, total_pnl_usd)
+            
+            total_pnl_pct = total_pnl_usd / position.position_size
 
             # Build duration string for Discord
             duration     = datetime.utcnow() - position.entry_time
@@ -351,15 +353,12 @@ class PositionManager:
             discord_notifier.send_sell_alert(
                 symbol=position.coin,
                 price=exit_price,
-                pnl_pct=pnl_pct * 100,
+                pnl_pct=total_pnl_pct * 100,  # Overall trade return %
                 pnl_usd=total_pnl_usd,
                 reason=exit_reason,
                 entry_price=position.entry_price,
                 duration_str=duration_str
             )
-
-            # Update risk manager and backfill stats using overall trade return
-            total_pnl_pct = total_pnl_usd / position.position_size
 
             # Backfill prediction outcomes in DB (makes model accuracy stats real)
             try:
@@ -373,6 +372,7 @@ class PositionManager:
             except Exception:
                 pass  # Never let this block trade close logic
 
+            # Update risk manager
             risk_manager.record_trade_result(total_pnl_usd, total_pnl_pct)
             risk_manager._invalidate_sync_cache()
 
@@ -381,7 +381,7 @@ class PositionManager:
 
             log_trade(
                 "SELL", position.coin, exit_price, exit_size,
-                exit_reason, pnl=pnl_pct * 100
+                exit_reason, pnl=total_pnl_pct * 100  # Overall trade return %
             )
 
             return {
@@ -393,7 +393,7 @@ class PositionManager:
                 "exit_size":   exit_size,
                 "exit_value":  exit_value,   # ← USDT to credit back to paper_balance
                 "exit_coins":  exit_coins,   # ← coin quantity for live sell
-                "pnl_pct":     pnl_pct,
+                "pnl_pct":     total_pnl_pct,  # Overall trade return fraction
                 "pnl_usd":     total_pnl_usd,
                 "duration":    str(datetime.utcnow() - position.entry_time)
             }
