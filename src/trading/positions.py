@@ -306,8 +306,23 @@ class PositionManager:
             exit_coins = position.position_coins
             exit_size  = position.remaining_size
             pnl_pct    = (exit_price - position.entry_price) / position.entry_price
-            pnl_usd    = exit_size * pnl_pct
-            exit_value = exit_size + pnl_usd   # ← USDT to credit back to paper_balance
+            final_leg_pnl = exit_size * pnl_pct
+            exit_value = exit_size + final_leg_pnl   # ← USDT to credit back to paper_balance
+
+            # Get total trade P&L (adding the first leg if partial exit occurred)
+            first_leg_pnl = 0.0
+            if position.partial_exit_done:
+                try:
+                    # Query the DB directly to load the first leg's realized PnL
+                    session = db.get_session()
+                    trade_row = session.query(Trade).filter(Trade.trade_id == trade_id).first()
+                    if trade_row and trade_row.pnl_usd is not None:
+                        first_leg_pnl = trade_row.pnl_usd
+                    session.close()
+                except Exception as e:
+                    logger.warning(f"Could not load partial pnl for trade {trade_id}: {e}")
+
+            total_pnl_usd = first_leg_pnl + final_leg_pnl
 
             # Update database
             db.update_trade(
@@ -316,14 +331,14 @@ class PositionManager:
                 exit_price=exit_price,
                 exit_reason=exit_reason,
                 pnl_percent=pnl_pct * 100,
-                pnl_usd=pnl_usd,
+                pnl_usd=total_pnl_usd,
                 status=TradeStatus.CLOSED
             )
 
             # Record outcome for performance tracking
             from src.models.ensemble import ensemble
-            outcome = "WIN" if pnl_usd > 0 else "LOSS"
-            ensemble.record_trade_outcome(position.coin, outcome, pnl_usd)
+            outcome = "WIN" if total_pnl_usd > 0 else "LOSS"
+            ensemble.record_trade_outcome(position.coin, outcome, total_pnl_usd)
 
             # Build duration string for Discord
             duration     = datetime.utcnow() - position.entry_time
@@ -337,7 +352,7 @@ class PositionManager:
                 symbol=position.coin,
                 price=exit_price,
                 pnl_pct=pnl_pct * 100,
-                pnl_usd=pnl_usd,
+                pnl_usd=total_pnl_usd,
                 reason=exit_reason,
                 entry_price=position.entry_price,
                 duration_str=duration_str
@@ -345,7 +360,6 @@ class PositionManager:
 
             # Backfill prediction outcomes in DB (makes model accuracy stats real)
             try:
-                outcome = "WIN" if pnl_usd > 0 else "LOSS"
                 db.backfill_prediction_outcomes(
                     symbol=position.coin,
                     trade_id=trade_id,
@@ -357,9 +371,8 @@ class PositionManager:
                 pass  # Never let this block trade close logic
 
             # Update risk manager
-            # NOTE: pnl_pct here is a fraction (e.g. 0.07 = +7%), NOT a percent.
-            # record_trade_result() expects a fraction for sign comparison.
-            risk_manager.record_trade_result(pnl_usd, pnl_pct)
+            total_pnl_pct = total_pnl_usd / position.position_size
+            risk_manager.record_trade_result(total_pnl_usd, total_pnl_pct)
             risk_manager._invalidate_sync_cache()
 
             # Remove from active positions
@@ -380,7 +393,7 @@ class PositionManager:
                 "exit_value":  exit_value,   # ← USDT to credit back to paper_balance
                 "exit_coins":  exit_coins,   # ← coin quantity for live sell
                 "pnl_pct":     pnl_pct,
-                "pnl_usd":     pnl_usd,
+                "pnl_usd":     total_pnl_usd,
                 "duration":    str(datetime.utcnow() - position.entry_time)
             }
     

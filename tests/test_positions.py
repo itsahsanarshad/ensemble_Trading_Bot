@@ -86,6 +86,12 @@ class _StubRM:
         elapsed = (datetime.utcnow() - entry_time).total_seconds() / 3600
         return elapsed > TIME_HOURS
 
+    def record_trade_result(self, pnl_usd, pnl_pct):
+        pass
+
+    def _invalidate_sync_cache(self):
+        pass
+
 
 _stub_rm    = _StubRM()
 _db_mock    = MagicMock(name="db_for_positions")
@@ -449,6 +455,57 @@ class TestTPMigrationLog(unittest.TestCase):
         # The "from" part must reference old_stale_tp
         self.assertIn(old_tp_str, log_text,
                       f"Migration log must contain old TP {old_tp_str}; got: {log_text}")
+
+
+class TestPartialExitPnLAccumulation(unittest.TestCase):
+    """
+    Test that full exit correctly retrieves and aggregates the realized partial exit PnL
+    so the final PnL logged is the total trade outcome.
+    """
+
+    def setUp(self):
+        _db_mock.reset_mock()
+        _log_mock.reset_mock()
+        _disc_mock.reset_mock()
+
+    @patch("src.trading.positions.db", _db_mock)
+    @patch("src.trading.positions.logger", _log_mock)
+    @patch("src.trading.positions.discord_notifier", _disc_mock)
+    @patch("src.trading.positions.risk_manager", _stub_rm)
+    def test_close_position_accumulates_partial_pnl(self):
+        # Setup a position that has undergone partial exit
+        pos = _make_position(position_size=20.0, partial_exit_done=True)
+        pos.remaining_size = 10.0
+        pos.position_coins = 0.1
+        
+        pm = _make_pm(pos)
+
+        # Mock the DB to return a Trade object with the first leg's PnL ($0.70)
+        mock_trade = MagicMock()
+        mock_trade.pnl_usd = 0.70
+        _db_mock.get_session.return_value.query.return_value.filter.return_value.first.return_value = mock_trade
+
+        # Close position (final leg has breakeven exit, so final leg PnL is 0.0)
+        result = pm.close_position(pos.trade_id, exit_price=100.0, exit_reason="STOP_LOSS")
+
+        # PnL expected to be first_leg ($0.70) + final_leg ($0.0) = $0.70
+        self.assertAlmostEqual(result["pnl_usd"], 0.70)
+
+        # Verify update_trade got total_pnl_usd
+        _db_mock.update_trade.assert_any_call(
+            pos.trade_id,
+            exit_time=unittest.mock.ANY,
+            exit_price=100.0,
+            exit_reason="STOP_LOSS",
+            pnl_percent=0.0,
+            pnl_usd=0.70,
+            status="CLOSED"
+        )
+
+        # Verify discord alert sent total pnl_usd
+        _disc_mock.send_sell_alert.assert_called_once()
+        args, kwargs = _disc_mock.send_sell_alert.call_args
+        self.assertAlmostEqual(kwargs.get("pnl_usd"), 0.70)
 
 
 if __name__ == "__main__":
