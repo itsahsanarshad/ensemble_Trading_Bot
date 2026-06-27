@@ -64,7 +64,10 @@ class RiskManager:
             open_trades = db.get_open_trades()
             self._open_positions = len(open_trades)
             self._open_coins = {t.coin for t in open_trades}
-            self._total_risk = sum(t.position_size for t in open_trades)
+            self._total_risk = sum(
+                (t.remaining_size if t.remaining_size is not None else t.position_size)
+                for t in open_trades
+            )
             
         except Exception as e:
             logger.warning(f"Could not sync with database: {e}")

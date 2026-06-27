@@ -4,7 +4,7 @@ Database Models and Connection Manager
 Uses SQLAlchemy with async support for SQLite.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List
 from decimal import Decimal
 from enum import Enum
@@ -428,10 +428,12 @@ class DatabaseManager:
     def get_daily_stats(self, date: datetime = None) -> dict:
         """Get trading stats for a specific day."""
         date = date or datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = date + timedelta(days=1)  # exclusive upper bound to scope to one day
         session = self.get_session()
         try:
             trades = session.query(Trade).filter(
                 Trade.exit_time >= date,
+                Trade.exit_time < end_date,
                 Trade.status == "CLOSED"
             ).all()
             

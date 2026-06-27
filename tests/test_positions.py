@@ -319,5 +319,136 @@ class TestCheckPosition(unittest.TestCase):
         self.assertAlmostEqual(pos.highest_price, 105.0)
 
 
+# ============================================================================
+# 11. Model exit signal (BUG 20 — ensemble.get_exit_signal wired up)
+# ============================================================================
+
+class TestModelExitSignal(unittest.TestCase):
+    """
+    Verify that check_position() delegates to ensemble.get_exit_signal() and
+    returns ("signal_exit", reason) when the ensemble signals a trend reversal.
+    """
+
+    def setUp(self):
+        _db_mock.reset_mock()
+        _log_mock.reset_mock()
+
+    def test_signal_exit_returned_when_ensemble_says_exit(self):
+        """When get_exit_signal returns ("exit", reason), action must be signal_exit."""
+        pos = _make_position(position_size=20.0)
+        pm  = _make_pm(pos)
+
+        mock_ensemble = MagicMock()
+        mock_ensemble.get_exit_signal.return_value = ("exit", "Bearish trend reversal detected")
+
+        # The function does `from src.models.ensemble import ensemble` lazily,
+        # so we patch the object on the source module (not the positions namespace).
+        with patch("src.models.ensemble.ensemble", mock_ensemble):
+            result = pm.check_position(pos.trade_id, ENTRY_PRICE * 1.01)  # in profit, no SL/TP hit
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result[0], "signal_exit")
+        self.assertIn("Bearish", result[1])
+
+    def test_no_signal_exit_when_ensemble_returns_hold(self):
+        """When get_exit_signal returns something other than 'exit', no signal_exit."""
+        pos = _make_position(position_size=20.0)
+        pm  = _make_pm(pos)
+
+        mock_ensemble = MagicMock()
+        mock_ensemble.get_exit_signal.return_value = ("hold", "")
+
+        with patch("src.models.ensemble.ensemble", mock_ensemble):
+            result = pm.check_position(pos.trade_id, ENTRY_PRICE * 1.01)
+
+        if result is not None:
+            self.assertNotEqual(result[0], "signal_exit")
+
+    def test_signal_exit_exception_is_swallowed(self):
+        """If ensemble.get_exit_signal raises, check_position must not propagate it."""
+        pos = _make_position(position_size=20.0)
+        pm  = _make_pm(pos)
+
+        mock_ensemble = MagicMock()
+        mock_ensemble.get_exit_signal.side_effect = RuntimeError("model unavailable")
+
+        with patch("src.models.ensemble.ensemble", mock_ensemble):
+            # Should not raise
+            try:
+                pm.check_position(pos.trade_id, ENTRY_PRICE * 1.01)
+            except RuntimeError:
+                self.fail("check_position() propagated RuntimeError from get_exit_signal")
+
+
+# ============================================================================
+# 12. TP migration log — variable shadowing fix (BUG 5 / Minor 17)
+# ============================================================================
+
+class TestTPMigrationLog(unittest.TestCase):
+    """
+    Verify that _load_open_positions() captures the old TP value BEFORE
+    overwriting it, so the warning log shows the correct "from" price.
+    """
+
+    def test_migration_log_records_old_tp_not_new(self):
+        """
+        When a stale TP2 <= TP1 is found, the warning must include the OLD TP
+        in the 'from' position, not the newly calculated tp2_correct value.
+        """
+        from unittest.mock import call
+
+        # Build a fake trade that will trigger migration: take_profit <= TP1 (3.5%)
+        old_stale_tp = ENTRY_PRICE * 1.03   # 3% — below TP1 of 3.5%, will trigger migration
+        tp1          = ENTRY_PRICE * 1.035  # 103.5
+        tp2_correct  = ENTRY_PRICE * 1.07   # 107.0
+
+        fake_trade = MagicMock()
+        fake_trade.trade_id             = "MIG-001"
+        fake_trade.coin                 = "BTCUSDT"
+        fake_trade.entry_price          = ENTRY_PRICE
+        fake_trade.position_size        = 20.0
+        fake_trade.position_size_coins  = 0.20
+        fake_trade.entry_time           = datetime.utcnow()
+        fake_trade.stop_loss_price      = STOP_LOSS
+        fake_trade.take_profit_price    = old_stale_tp   # STALE — below TP1
+        fake_trade.consensus_tier       = 1
+        fake_trade.highest_price        = ENTRY_PRICE
+        fake_trade.trailing_stop_price  = None
+        fake_trade.partial_exit_done    = 0
+        fake_trade.remaining_size       = 20.0
+        fake_trade.ta_confidence        = 0.0
+        fake_trade.ml_confidence        = 0.0
+        fake_trade.tcn_confidence       = 0.0
+        fake_trade.entry_reason         = ""
+
+        with patch("src.trading.positions.db") as mock_db, \
+             patch("src.trading.positions.risk_manager") as mock_rm, \
+             patch("src.trading.positions.logger") as mock_logger:
+
+            mock_db.get_open_trades.return_value  = [fake_trade]
+            mock_db.update_trade.return_value      = None
+            mock_rm.get_partial_exit_price.return_value = tp1
+            mock_rm.get_take_profit_price.return_value  = tp2_correct
+
+            pm = PositionManager.__new__(PositionManager)
+            pm.positions = {}
+            pm._load_open_positions()
+
+        # Verify logger.warning was called with a message containing the OLD stale TP
+        warning_calls = [str(c) for c in mock_logger.warning.call_args_list]
+        migration_calls = [c for c in warning_calls if "Migrated" in c]
+        self.assertTrue(
+            len(migration_calls) > 0,
+            "Expected a migration warning to be logged"
+        )
+        # The log must contain the old stale TP value, NOT tp2_correct as the "from"
+        old_tp_str = f"{old_stale_tp:.4f}"
+        new_tp_str = f"{tp2_correct:.4f}"
+        log_text = migration_calls[0]
+        # The "from" part must reference old_stale_tp
+        self.assertIn(old_tp_str, log_text,
+                      f"Migration log must contain old TP {old_tp_str}; got: {log_text}")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

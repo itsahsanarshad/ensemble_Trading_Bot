@@ -437,5 +437,84 @@ class TestPaperSell(unittest.TestCase):
         self.assertAlmostEqual(ex.paper_balance, 80.0 + exit_value * 0.999, places=4)
 
 
+
+# ============================================================================
+# 6. sync_state() — must NOT wipe daily_pnl or _total_risk (BUG 3 + 13)
+# ============================================================================
+
+class TestSyncStateDoesNotWipeRiskState(unittest.TestCase):
+    """
+    Ensure that sync_state() never manually zeros risk_manager.daily_pnl
+    or risk_manager._total_risk. Instead it must call _sync_with_database()
+    so that both are recomputed accurately from the DB.
+
+    Without this fix the daily loss guard (-8%) was silently bypassed
+    on every balance discrepancy > $0.01.
+    """
+
+    def _run_sync(self, balance_in_state: float, balance_in_executor: float):
+        """
+        Return (mock_rm, executor) after one sync_state() call where the DB
+        balance differs from the executor's in-memory balance.
+        """
+        ex = _make_executor(balance=balance_in_executor)
+
+        mock_rm = MagicMock()
+        mock_pm = MagicMock()
+        mock_state = {
+            "paper_balance": balance_in_state,
+            "trades_count":  0,
+            "last_updated":  "2026-01-01T00:00:00",
+            "metadata":      {},
+        }
+
+        with patch("src.trading.executor.load_state", return_value=mock_state), \
+             patch("src.trading.executor.risk_manager", mock_rm), \
+             patch("src.trading.executor.position_manager", mock_pm), \
+             patch("src.trading.executor.save_state"):
+            ex.sync_state()
+
+        return mock_rm, ex
+
+    def test_sync_calls_sync_with_database_on_balance_discrepancy(self):
+        """When balance differs > $0.01, _sync_with_database must be called."""
+        mock_rm, _ = self._run_sync(balance_in_state=95.0, balance_in_executor=100.0)
+        mock_rm._sync_with_database.assert_called_once()
+
+    def test_sync_does_not_set_daily_pnl_to_zero(self):
+        """
+        sync_state() must NOT directly assign daily_pnl = 0.0.
+        We detect this by checking that the attribute was never set to 0
+        via the mock's attribute setter. Since risk_manager is a MagicMock,
+        any direct attribute assignment shows up in mock_calls.
+        """
+        mock_rm, _ = self._run_sync(balance_in_state=95.0, balance_in_executor=100.0)
+        for c in mock_rm.mock_calls:
+            call_str = str(c)
+            # Detect explicit zero-assignment: attribute name + "= 0" pattern
+            if "daily_pnl" in call_str and "= 0" in call_str:
+                self.fail(
+                    f"sync_state() directly zeroed daily_pnl — breaks 8% daily loss guard. Call: {c}"
+                )
+
+    def test_sync_does_not_set_total_risk_to_zero(self):
+        """sync_state() must NOT directly set _total_risk = 0.0."""
+        mock_rm, _ = self._run_sync(balance_in_state=95.0, balance_in_executor=100.0)
+        for c in mock_rm.mock_calls:
+            call_str = str(c)
+            if "_total_risk" in call_str and "= 0" in call_str:
+                self.fail(
+                    f"sync_state() directly zeroed _total_risk — bypasses portfolio risk limit. Call: {c}"
+                )
+
+    def test_sync_does_not_trigger_on_small_discrepancy(self):
+        """Balance difference <= $0.01 must NOT trigger a sync (no load from DB)."""
+        mock_rm, _ = self._run_sync(
+            balance_in_state=100.005,   # $0.005 diff — below $0.01 threshold
+            balance_in_executor=100.0
+        )
+        mock_rm._sync_with_database.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

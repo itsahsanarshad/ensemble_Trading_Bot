@@ -103,7 +103,7 @@ class PositionManager:
                     highest_price=trade.highest_price or trade.entry_price,
                     trailing_stop=trade.trailing_stop_price,
                     partial_exit_done=bool(trade.partial_exit_done),
-                    remaining_size=trade.remaining_size or trade.position_size,
+                    remaining_size=trade.remaining_size if trade.remaining_size is not None else trade.position_size,
                     ta_confidence=trade.ta_confidence or 0,
                     ml_confidence=trade.ml_confidence or 0,
                     tcn_confidence=trade.tcn_confidence or 0,
@@ -117,10 +117,11 @@ class PositionManager:
                 tp1 = risk_manager.get_partial_exit_price(pos.entry_price)   # +3.5%
                 tp2_correct = risk_manager.get_take_profit_price(pos.entry_price, pos.tier)  # +7.0%
                 if pos.take_profit <= tp1:
+                    old_tp = pos.take_profit
                     pos.take_profit = tp2_correct
                     db.update_trade(trade_id, take_profit_price=tp2_correct)
                     logger.warning(
-                        f"[{pos.coin}] Migrated stale TP2 from ${pos.take_profit:.4f} → "
+                        f"[{pos.coin}] Migrated stale TP2 from ${old_tp:.4f} → "
                         f"${tp2_correct:.4f} (+7%). TP1=${tp1:.4f}, TP2=${tp2_correct:.4f}"
                     )
         except Exception as e:
@@ -485,6 +486,18 @@ class PositionManager:
             if current_price <= position.trailing_stop:
                 return ("trailing_stop", f"Trailing stop hit at ${current_price:.4f}")
         
+        # Check model exit signal (ML + TA structural bearish or confidence collapse)
+        # Called before time stop so models can exit early on trend reversal.
+        try:
+            from src.models.ensemble import ensemble
+            exit_action, exit_reason = ensemble.get_exit_signal(
+                position.coin, position.entry_price, current_price
+            )
+            if exit_action == "exit":
+                return ("signal_exit", exit_reason)
+        except Exception as e:
+            logger.warning(f"Error checking model exit signal for {position.coin}: {e}")
+
         # Check time stop — uses TIME_STOP_HOURS from settings (.env)
         if risk_manager.should_time_stop(position.entry_time):
             if pnl_pct < 0.015:  # Cut if profit is less than 1.5% after time limit

@@ -90,11 +90,11 @@ class TradingExecutor:
                     # Reload positions from database
                     position_manager._load_open_positions()
                     
-                    # Sync risk manager capital and parameters
+                    # Sync risk manager capital and parameters —
+                    # do NOT manually zero daily_pnl or _total_risk here.
+                    # _sync_with_database() recomputes them accurately from DB.
                     risk_manager.set_capital(self.paper_balance)
-                    risk_manager.daily_start_capital = self.paper_balance
-                    risk_manager._total_risk = 0.0
-                    risk_manager.daily_pnl = 0.0
+                    risk_manager._sync_with_database()
         except Exception as e:
             logger.warning(f"Failed to sync executor state with DB: {e}")
     

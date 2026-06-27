@@ -352,5 +352,82 @@ class TestRecordTradeResult(unittest.TestCase):
         self.assertFalse(rm.trading_paused)
 
 
+
+# ============================================================================
+# 9. _sync_with_database — _total_risk uses remaining_size (BUG 16)
+# ============================================================================
+
+class TestSyncWithDatabaseTotalRisk(unittest.TestCase):
+    """
+    Verify that _sync_with_database() computes _total_risk from
+    remaining_size (post-partial-exit) rather than the static position_size.
+    """
+
+    def _make_trade(self, position_size, remaining_size):
+        """Return a simple object mimicking a DB Trade row."""
+        t = MagicMock()
+        t.position_size  = position_size
+        t.remaining_size = remaining_size
+        t.coin = "BTCUSDT"
+        return t
+
+    def test_total_risk_uses_remaining_size_after_partial_exit(self):
+        """After TP1, remaining_size is halved — _total_risk must reflect that."""
+        trade = self._make_trade(position_size=20.0, remaining_size=10.0)
+
+        import src.trading.risk as _risk_mod
+        rm = _make_rm()
+        orig_db = _risk_mod.db
+        mock_db = MagicMock()
+        mock_db.get_daily_stats.return_value = {"pnl": 0.0}
+        mock_db.get_open_trades.return_value  = [trade]
+        _risk_mod.db = mock_db
+        try:
+            rm._sync_with_database()
+        finally:
+            _risk_mod.db = orig_db
+
+        # Should be remaining_size (10), NOT position_size (20)
+        self.assertAlmostEqual(rm._total_risk, 10.0)
+
+    def test_total_risk_falls_back_to_position_size_when_remaining_is_none(self):
+        """When remaining_size is None (no partial exit yet), use position_size."""
+        trade = self._make_trade(position_size=20.0, remaining_size=None)
+
+        import src.trading.risk as _risk_mod
+        rm = _make_rm()
+        orig_db = _risk_mod.db
+        mock_db = MagicMock()
+        mock_db.get_daily_stats.return_value = {"pnl": 0.0}
+        mock_db.get_open_trades.return_value  = [trade]
+        _risk_mod.db = mock_db
+        try:
+            rm._sync_with_database()
+        finally:
+            _risk_mod.db = orig_db
+
+        self.assertAlmostEqual(rm._total_risk, 20.0)
+
+    def test_total_risk_sums_multiple_trades_mixed_remaining(self):
+        """Multiple open trades — some partial, some not — are summed correctly."""
+        trade_a = self._make_trade(position_size=20.0, remaining_size=10.0)   # partial exit
+        trade_b = self._make_trade(position_size=15.0, remaining_size=None)   # no partial
+
+        import src.trading.risk as _risk_mod
+        rm = _make_rm()
+        orig_db = _risk_mod.db
+        mock_db = MagicMock()
+        mock_db.get_daily_stats.return_value = {"pnl": 0.0}
+        mock_db.get_open_trades.return_value  = [trade_a, trade_b]
+        _risk_mod.db = mock_db
+        try:
+            rm._sync_with_database()
+        finally:
+            _risk_mod.db = orig_db
+
+        # 10.0 (trade_a remaining) + 15.0 (trade_b full size) = 25.0
+        self.assertAlmostEqual(rm._total_risk, 25.0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
