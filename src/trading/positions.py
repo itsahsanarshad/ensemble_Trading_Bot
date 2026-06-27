@@ -243,27 +243,39 @@ class PositionManager:
         
         position = self.positions[trade_id]
         
+        # Guard: ensure position_coins is populated (positions loaded from DB may be missing it)
+        if position.position_coins is None or position.position_coins <= 0:
+            position.position_coins = position.remaining_size / position.entry_price
+
         if partial and not position.partial_exit_done:
-            # Partial exit: sell 50% at TP1
-            exit_size = position.remaining_size * 0.50
-            position.remaining_size -= exit_size
+            # Partial exit: sell 50% of remaining coins at TP1
+            exit_coins = position.position_coins * 0.50
+            exit_size  = position.remaining_size  * 0.50
+
+            # Update in-memory tracking
+            position.position_coins  -= exit_coins
+            position.remaining_size  -= exit_size
             position.partial_exit_done = True
-            
-            pnl_pct = (exit_price - position.entry_price) / position.entry_price
-            pnl_usd = exit_size * pnl_pct
-            
-            # Update database
+
+            pnl_pct   = (exit_price - position.entry_price) / position.entry_price
+            pnl_usd   = exit_size * pnl_pct
+            # exit_value = the USDT value being returned to the balance
+            # (original cost of that slice + any profit/loss on it)
+            exit_value = exit_size + pnl_usd
+
+            # Update database — also persist reduced coin count
             db.update_trade(
                 trade_id,
                 partial_exit_done=1,
-                remaining_size=position.remaining_size
+                remaining_size=position.remaining_size,
+                position_size_coins=position.position_coins
             )
-            
+
             log_trade(
                 "PARTIAL_SELL", position.coin, exit_price, exit_size,
                 exit_reason, pnl=pnl_pct * 100
             )
-            
+
             # Discord TP1 partial exit alert
             discord_notifier.send_partial_exit_alert(
                 symbol=position.coin,
@@ -272,21 +284,27 @@ class PositionManager:
                 pnl_usd=pnl_usd,
                 remaining_size=position.remaining_size
             )
-            
+
             return {
-                "trade_id": trade_id,
-                "type": "partial",
-                "exit_size": exit_size,
-                "pnl_pct": pnl_pct,
-                "pnl_usd": pnl_usd,
-                "remaining": position.remaining_size
+                "trade_id":   trade_id,
+                "type":       "partial",
+                "coin":       position.coin,
+                "exit_price": exit_price,
+                "exit_size":  exit_size,
+                "exit_value": exit_value,   # ← USDT to credit back to paper_balance
+                "exit_coins": exit_coins,   # ← coin quantity for live sell
+                "pnl_pct":    pnl_pct,
+                "pnl_usd":    pnl_usd,
+                "remaining":  position.remaining_size
             }
         else:
-            # Full exit
-            exit_size = position.remaining_size
-            pnl_pct = (exit_price - position.entry_price) / position.entry_price
-            pnl_usd = exit_size * pnl_pct
-            
+            # Full exit — sell everything remaining
+            exit_coins = position.position_coins
+            exit_size  = position.remaining_size
+            pnl_pct    = (exit_price - position.entry_price) / position.entry_price
+            pnl_usd    = exit_size * pnl_pct
+            exit_value = exit_size + pnl_usd   # ← USDT to credit back to paper_balance
+
             # Update database
             db.update_trade(
                 trade_id,
@@ -297,19 +315,19 @@ class PositionManager:
                 pnl_usd=pnl_usd,
                 status=TradeStatus.CLOSED
             )
-            
+
             # Record outcome for performance tracking
             from src.models.ensemble import ensemble
             outcome = "WIN" if pnl_usd > 0 else "LOSS"
             ensemble.record_trade_outcome(position.coin, outcome, pnl_usd)
-            
+
             # Build duration string for Discord
-            duration = datetime.utcnow() - position.entry_time
-            total_secs = int(duration.total_seconds())
+            duration     = datetime.utcnow() - position.entry_time
+            total_secs   = int(duration.total_seconds())
             hours, remainder = divmod(total_secs, 3600)
-            mins = remainder // 60
+            mins         = remainder // 60
             duration_str = f"{hours}h {mins}m" if hours > 0 else f"{mins}m"
-            
+
             # Send Discord Alert with full trade summary
             discord_notifier.send_sell_alert(
                 symbol=position.coin,
@@ -320,7 +338,7 @@ class PositionManager:
                 entry_price=position.entry_price,
                 duration_str=duration_str
             )
-            
+
             # Backfill prediction outcomes in DB (makes model accuracy stats real)
             try:
                 outcome = "WIN" if pnl_usd > 0 else "LOSS"
@@ -333,28 +351,30 @@ class PositionManager:
                 )
             except Exception:
                 pass  # Never let this block trade close logic
-            
+
             # Update risk manager
             risk_manager.record_trade_result(pnl_usd, pnl_pct)
-            
+
             # Remove from active positions
             del self.positions[trade_id]
-            
+
             log_trade(
                 "SELL", position.coin, exit_price, exit_size,
                 exit_reason, pnl=pnl_pct * 100
             )
-            
+
             return {
-                "trade_id": trade_id,
-                "type": "full",
-                "coin": position.coin,
+                "trade_id":    trade_id,
+                "type":        "full",
+                "coin":        position.coin,
                 "entry_price": position.entry_price,
-                "exit_price": exit_price,
-                "exit_size": exit_size,
-                "pnl_pct": pnl_pct,
-                "pnl_usd": pnl_usd,
-                "duration": str(datetime.utcnow() - position.entry_time)
+                "exit_price":  exit_price,
+                "exit_size":   exit_size,
+                "exit_value":  exit_value,   # ← USDT to credit back to paper_balance
+                "exit_coins":  exit_coins,   # ← coin quantity for live sell
+                "pnl_pct":     pnl_pct,
+                "pnl_usd":     pnl_usd,
+                "duration":    str(datetime.utcnow() - position.entry_time)
             }
     
     def check_position(self, trade_id: str, current_price: float) -> Optional[Tuple[str, str]]:

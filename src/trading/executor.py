@@ -500,26 +500,97 @@ class TradingExecutor:
     def monitor_positions(self) -> Dict:
         """
         Monitor all open positions and handle exits.
-        
+
+        For each triggered exit (SL / TP1 / TP2 / trailing / time-stop):
+          - Paper mode → call _paper_sell  → credit exit_value to paper_balance
+          - Live mode  → call _live_sell   → place market sell on Binance
+
         Returns:
             Dictionary with monitoring results
         """
         self.sync_state()
+
         # Get current prices for all positions
         positions = position_manager.get_open_positions()
-        
+
         if not positions:
             return {"monitored": 0, "exits": []}
-        
-        coins = [p["coin"] for p in positions]
+
+        coins  = [p["coin"] for p in positions]
         prices = collector.get_all_prices(coins)
-        
-        # Check all positions
+
+        # Check all positions — close_position() now returns exit_value / exit_coins
         exits = position_manager.check_all_positions(prices)
-        
+
+        processed_exits = []
+        for exit_info in exits:
+            coin        = exit_info.get("coin")
+            exit_price  = exit_info.get("exit_price", 0)
+            exit_value  = exit_info.get("exit_value", 0)   # USDT to return to balance
+            exit_coins  = exit_info.get("exit_coins", 0)   # coin qty for live sell
+            trade_id    = exit_info.get("trade_id")
+            exit_type   = exit_info.get("type")            # "partial" or "full"
+
+            if not coin or exit_value <= 0:
+                # Shouldn't happen; skip rather than corrupt the balance
+                logger.warning(f"Skipping exit with missing data: {exit_info}")
+                continue
+
+            logger.info(
+                f"Executing exit | {coin} ({exit_type}) | "
+                f"price=${exit_price:.4f} | value=${exit_value:.2f} | coins={exit_coins:.6f}"
+            )
+
+            if self.mode == ExecutionMode.PAPER:
+                # _paper_sell adds (size × fill_price/price) to paper_balance.
+                # We pass exit_value as `size` and price==fill_price so the
+                # full exit_value is credited (slippage is already simulated inside).
+                sell_result = self._paper_sell(coin, exit_price, exit_value)
+
+                if sell_result.success:
+                    # Update paper_trades tracking
+                    if exit_type == "full":
+                        if trade_id in self.paper_trades:
+                            del self.paper_trades[trade_id]
+                    else:
+                        # Partial: halve the tracked size
+                        if trade_id in self.paper_trades:
+                            self.paper_trades[trade_id]["size"] *= 0.50
+
+                    # Persist new balance to DB + JSON so dashboard shows it immediately
+                    save_state(self.paper_balance, len(self.paper_trades))
+
+                    # Keep risk_manager capital in sync
+                    risk_manager.set_capital(self.paper_balance)
+
+                    processed_exits.append(exit_info)
+                    logger.info(
+                        f"Paper balance after {exit_type} exit of {coin}: "
+                        f"${self.paper_balance:.2f}"
+                    )
+                else:
+                    logger.error(
+                        f"Paper sell failed for {coin} ({exit_type}): {sell_result.message}"
+                    )
+
+            else:
+                # Live mode — place market sell on Binance
+                sell_result = self._live_sell(coin, exit_coins)
+
+                if sell_result.success:
+                    processed_exits.append(exit_info)
+                    logger.info(
+                        f"Live sell executed for {coin} ({exit_type}): "
+                        f"qty={exit_coins:.6f}, orderId={sell_result.order_id}"
+                    )
+                else:
+                    logger.error(
+                        f"Live sell FAILED for {coin} ({exit_type}): {sell_result.message}"
+                    )
+
         return {
             "monitored": len(positions),
-            "exits": exits
+            "exits":     processed_exits
         }
     
     def get_status(self) -> Dict:

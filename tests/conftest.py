@@ -62,7 +62,15 @@ _stub_modules = {
     ),
     "src.data.collector":  MagicMock(collector=_coll_mock, BinanceCollector=MagicMock()),
     "src.data.features":   MagicMock(feature_engineer=MagicMock(), FeatureEngineer=MagicMock()),
-    "src.data.state":      MagicMock(save_state=MagicMock(), load_state=MagicMock()),
+    "src.data.state": MagicMock(
+        save_state=MagicMock(),
+        load_state=MagicMock(return_value={
+            "paper_balance": 100.0,   # real float — executor formats with :.2f
+            "trades_count":  0,
+            "last_updated":  "2026-01-01T00:00:00",
+            "metadata":      {},
+        }),
+    ),
 
     # ── utils layer ─────────────────────────────────────────────────────────
     "src.utils": MagicMock(
@@ -87,13 +95,10 @@ _stub_modules = {
     "src.models.ml_model":    MagicMock(ml_model=MagicMock(),  MLSignal=MagicMock()),
     "src.models.tcn_model":   MagicMock(tcn_model=MagicMock(), TCNSignal=MagicMock()),
 
-    # ── executor (pulls in state, binance, etc.) ─────────────────────────────
-    "src.trading.executor": MagicMock(
-        executor=MagicMock(),
-        TradingExecutor=MagicMock(),
-        ExecutionMode=MagicMock(),
-        OrderResult=MagicMock(),
-    ),
+    # ── executor: NOT stubbed here — test_executor.py needs the real class.
+    # Other test files (test_risk, test_positions, test_ensemble) never import
+    # executor directly, so removing this stub is safe.
+
 }
 
 for mod_name, stub in _stub_modules.items():
