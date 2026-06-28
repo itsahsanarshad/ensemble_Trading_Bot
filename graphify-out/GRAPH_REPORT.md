@@ -1,16 +1,16 @@
-# Graph Report - ensemble_trading_bot  (2026-06-27)
+# Graph Report - ensemble_trading_bot  (2026-06-28)
 
 ## Corpus Check
-- 48 files · ~52,943 words
+- 48 files · ~53,135 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1118 nodes · 1765 edges · 79 communities (69 shown, 10 thin omitted)
-- Extraction: 84% EXTRACTED · 16% INFERRED · 0% AMBIGUOUS · INFERRED: 283 edges (avg confidence: 0.7)
+- 1130 nodes · 1785 edges · 89 communities (79 shown, 10 thin omitted)
+- Extraction: 84% EXTRACTED · 16% INFERRED · 0% AMBIGUOUS · INFERRED: 291 edges (avg confidence: 0.7)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `f4565ad7`
+- Built from commit: `34ef3a00`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -91,17 +91,27 @@
 - [[_COMMUNITY_Community 76|Community 76]]
 - [[_COMMUNITY_Community 77|Community 77]]
 - [[_COMMUNITY_Community 78|Community 78]]
+- [[_COMMUNITY_Community 79|Community 79]]
+- [[_COMMUNITY_Community 80|Community 80]]
+- [[_COMMUNITY_Community 81|Community 81]]
+- [[_COMMUNITY_Community 82|Community 82]]
+- [[_COMMUNITY_Community 83|Community 83]]
+- [[_COMMUNITY_Community 84|Community 84]]
+- [[_COMMUNITY_Community 85|Community 85]]
+- [[_COMMUNITY_Community 86|Community 86]]
+- [[_COMMUNITY_Community 87|Community 87]]
+- [[_COMMUNITY_Community 88|Community 88]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `_make_position()` - 30 edges
-2. `_make_pm()` - 29 edges
-3. `RiskManager` - 28 edges
-4. `TestCheckPosition` - 28 edges
-5. `_make_rm()` - 28 edges
-6. `PositionManager` - 25 edges
-7. `ConsensusEnsemble` - 24 edges
+1. `ConsensusEnsemble` - 31 edges
+2. `_make_position()` - 30 edges
+3. `_make_pm()` - 29 edges
+4. `RiskManager` - 28 edges
+5. `TestCheckPosition` - 28 edges
+6. `_make_rm()` - 28 edges
+7. `PositionManager` - 25 edges
 8. `_make_tracker()` - 24 edges
-9. `ModelPerformanceTracker` - 21 edges
+9. `ModelPerformanceTracker` - 22 edges
 10. `_make_executor()` - 21 edges
 
 ## Surprising Connections (you probably didn't know these)
@@ -119,15 +129,15 @@
 ## Hyperedges (group relationships)
 - **Model Training & Backtesting** — training_backtest_py, training_train_lightgbm_py, training_train_tcn_py [INFERRED 0.85]
 
-## Communities (79 total, 10 thin omitted)
+## Communities (89 total, 10 thin omitted)
 
 ### Community 0 - "Community 0"
-Cohesion: 0.05
-Nodes (38): _make_pm(), _make_position(), Unit tests for PositionManager.check_position() — covers:    - Stop loss trigger, Small position whose highest_price >= TP1 must get a trailing_stop         set t, Small position whose highest_price >= TP1 must get a trailing_stop         set t, Small position whose highest_price >= TP1 must get a trailing_stop         set t, Price never reached TP1 — no tight trail should activate., Price never reached TP1 — no tight trail should activate. (+30 more)
+Cohesion: 0.25
+Nodes (3): _make_pm(), _make_position(), TestCheckPosition
 
 ### Community 1 - "Community 1"
 Cohesion: 0.15
-Nodes (12): ExitReason, Exit reason enumeration., TestMonitorNoPositions, Test that full exit correctly retrieves and aggregates the realized partial exit, TestPartialExitPnLAccumulation, Position, PositionManager, Active trading position. (+4 more)
+Nodes (13): Trade records for tracking and analysis., Trade, Test that full exit correctly retrieves and aggregates the realized partial exit, TestPartialExitPnLAccumulation, Position, PositionManager, Open a new position.                  Args:             coin: Trading pair, Open a new position.                  Args:             coin: Trading pair (+5 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.11
@@ -142,24 +152,24 @@ Cohesion: 0.33
 Nodes (4): Force the next _sync_with_database() call to hit the DB., Reset daily counters (call at midnight)., Reset daily counters (call at midnight)., Reset daily counters (call at midnight).
 
 ### Community 5 - "Community 5"
-Cohesion: 0.09
-Nodes (22): load_state(), Load bot state — tries DB first, falls back to JSON.      Returns:         Di, OrderResult, Execute a trading signal.                  Args:             symbol: Trading, Execute paper buy order., Execute paper buy order., Execute paper sell order., Execute paper buy order.          C-4 FIX: Removed the redundant _sync_with_da (+14 more)
+Cohesion: 0.08
+Nodes (24): load_state(), State Management  Persist bot state across restarts. Primary store: BotState, Reset state to initial values., Save bot state to DB ledger and JSON backup.      Args:         paper_balance, Load bot state — tries DB first, falls back to JSON.      Returns:         Di, reset_state(), save_state(), Execute a trading signal.                  Args:             symbol: Trading (+16 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.08
 Nodes (18): FeatureEngineer, Create volume-based features (12 features)., Create technical indicators (25 features)., Create volatility features (8 features)., Create pattern recognition features (10 features)., Create time-based features (6 features)., Feature engineering for crypto trading.          Creates 80+ features grouped, Calculate RSI indicator. (+10 more)
 
 ### Community 7 - "Community 7"
-Cohesion: 0.05
-Nodes (33): MultiHeadAttention, Single temporal block with dilated causal convolution.          This is the co, Multi-Head Self-Attention for temporal sequences.          This allows the mod, Multi-Head Self-Attention for temporal sequences.          This allows the mod, Temporal Convolutional Network with Multi-Head Attention.          Architectur, Temporal Convolutional Network with Multi-Head Attention.          Architectur, Production wrapper for TCN model.          Handles:     - Model loading/savin, Production wrapper for TCN model.          Handles:     - Model loading/savin (+25 more)
+Cohesion: 0.2
+Nodes (6): MultiHeadAttention, Single temporal block with dilated causal convolution.          This is the co, Multi-Head Self-Attention for temporal sequences.          This allows the mod, Multi-Head Self-Attention for temporal sequences.          This allows the mod, Single temporal block with dilated causal convolution.          This is the co, TemporalBlock
 
 ### Community 8 - "Community 8"
 Cohesion: 0.15
 Nodes (10): Send trade exit notification., Send daily summary notification., Send risk management alert., Send system status notification., Send trading notifications via Telegram.          Messages include:     - Tra, Initialize Telegram notifier., Send a message via Telegram., Send message synchronously. (+2 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.09
-Nodes (21): get_balance_history(), get_history(), get_model_performance(), get_portfolio(), get_positions(), get_signals(), get_status(), Get all currently open positions. (+13 more)
+Cohesion: 0.15
+Nodes (9): Verify that check_position() delegates to ensemble.get_exit_signal() and     ret, Verify that check_position() delegates to ensemble.get_exit_signal() and     ret, When get_exit_signal returns ("exit", reason), action must be signal_exit., When get_exit_signal returns ("exit", reason), action must be signal_exit., When get_exit_signal returns something other than 'exit', no signal_exit., When get_exit_signal returns something other than 'exit', no signal_exit., If ensemble.get_exit_signal raises, check_position must not propagate it., If ensemble.get_exit_signal raises, check_position must not propagate it. (+1 more)
 
 ### Community 10 - "Community 10"
 Cohesion: 0.06
@@ -170,28 +180,28 @@ Cohesion: 0.1
 Nodes (15): BinanceCollector, Fetch candlestick data from Binance.                  Args:             symbo, Get current price for a symbol., Get current prices for multiple symbols., Get 24-hour statistics for a symbol., Backfill historical data for a symbol using public API.                  Args:, Collects OHLCV data from Binance API.          Supports:     - Historical dat, Update data for all monitored coins.                  Args:             timef (+7 more)
 
 ### Community 12 - "Community 12"
-Cohesion: 0.15
-Nodes (12): ConsensusSignal, Combined signal from all models., Combined signal from all models., Combined signal from all models., Convert to dictionary., Technical Analysis signal output., Technical Analysis signal output.      V5 Contract:         signal     : Always, Technical Analysis signal output.      V5 Contract:         signal     : Always (+4 more)
+Cohesion: 0.13
+Nodes (14): ConsensusSignal, Combined signal from all models., Combined signal from all models., Combined signal from all models., Convert to dictionary., MLSignal, ML model prediction output., Technical Analysis signal output. (+6 more)
 
 ### Community 13 - "Community 13"
 Cohesion: 0.13
 Nodes (25): _adx(), _atr(), _bollinger(), calculate_all(), calculate_daily_bias(), calculate_vwap(), _detect_patterns(), _ema() (+17 more)
 
 ### Community 14 - "Community 14"
-Cohesion: 0.21
-Nodes (13): augment_sequences(), calculate_atr(), calculate_macd(), calculate_rsi(), engineer_features(), fetch_training_data(), PyTorch TCN Training Script - Production Ready with GPU Acceleration  Features, Data augmentation for 4x training data.          Techniques:     1. Gaussian (+5 more)
+Cohesion: 0.17
+Nodes (15): augment_sequences(), calculate_atr(), calculate_macd(), calculate_rsi(), engineer_features(), fetch_training_data(), PyTorch TCN Training Script - Production Ready with GPU Acceleration  Features, Temporal Convolutional Network with Multi-Head Attention.          Architectur (+7 more)
 
 ### Community 15 - "Community 15"
 Cohesion: 0.14
 Nodes (10): HybridMLModel, Load saved model if exists., Get comprehensive feature list for multi-timeframe analysis., Prepare features for prediction., Train the hybrid XGBoost + CatBoost model.                  Uses ATR-based ada, Make prediction using ensemble of XGBoost + CatBoost., Hybrid XGBoost + CatBoost Model for Crypto Prediction.          Uses soft voti, Initialize hybrid model. (+2 more)
 
 ### Community 16 - "Community 16"
-Cohesion: 0.1
-Nodes (16): main(), Scan all coins for trading signals., Monitor all open positions., Fetch daily stats and send to Discord., Run a single iteration of the bot.          H-3 FIX: Previously this called ex, Run the bot continuously with scheduling., Run the bot continuously with scheduling., Get current bot status. (+8 more)
+Cohesion: 0.05
+Nodes (37): get_balance_history(), get_history(), get_model_performance(), get_portfolio(), get_positions(), get_signals(), get_status(), Get all currently open positions. (+29 more)
 
 ### Community 17 - "Community 17"
-Cohesion: 0.11
-Nodes (22): _adx(), _atr(), _bollinger(), calculate_daily_bias(), calculate_vwap(), _detect_patterns(), _ema(), _macd() (+14 more)
+Cohesion: 0.07
+Nodes (35): _adx(), _atr(), _bollinger(), calculate_daily_bias(), calculate_vwap(), _detect_patterns(), _ema(), _macd() (+27 more)
 
 ### Community 18 - "Community 18"
 Cohesion: 0.22
@@ -226,24 +236,24 @@ Cohesion: 0.13
 Nodes (12): ModelPerformanceTracker, Track individual model performance (TA, ML, TCN) for data-driven weight     adju, Track individual model performance (TA, ML, TCN) for data-driven weight     adju, Keep only recent predictions., Save tracker state to file., Returns performance-adjusted model weights normalised to 1.0.         V5 base: M, Returns performance-adjusted model weights normalised to 1.0.         V5 base: M, Keep the last max_size predictions (aligned with save limit). (+4 more)
 
 ### Community 33 - "Community 33"
-Cohesion: 0.13
-Nodes (11): Binance Data Collector  Fetches OHLCV data from Binance API for all monitored, Feature Engineering Module  Creates 80+ features for machine learning models f, Data package initialization., Consensus Ensemble System — V5 (ML-Gated Architecture)  ARCHITECTURE CHANGE (V5), Models package initialization., Hybrid ML Model: XGBoost + CatBoost Ensemble  Based on research showing: - XG, PyTorch TCN (Temporal Convolutional Network) Model — V5 (Regularized Filter), get_daily_stats() (+3 more)
+Cohesion: 0.17
+Nodes (9): Binance Data Collector  Fetches OHLCV data from Binance API for all monitored, Feature Engineering Module  Creates 80+ features for machine learning models f, Data package initialization., kelly_position_size(), Consensus Ensemble System — V5 (ML-Gated Architecture)  ARCHITECTURE CHANGE (V5), Fractional Kelly criterion position size.      Args:         win_prob       : Ca, Fractional Kelly criterion position size.      Args:         win_prob       : Ca, Models package initialization. (+1 more)
 
 ### Community 34 - "Community 34"
-Cohesion: 0.22
-Nodes (5): MarketRegimeDetector, Detect market regime (BULL / BEAR / SIDEWAYS) using BTC 4h data.     Adjusts con, Detect market regime (BULL / BEAR / SIDEWAYS) using BTC 4h data.     Adjusts con, Detect current market regime using BTC as benchmark.                  Uses:, Get thresholds adjusted for current market regime.
+Cohesion: 0.17
+Nodes (8): MarketRegimeDetector, Detect market regime (BULL / BEAR / SIDEWAYS) using BTC 4h data.     Adjusts con, Detect market regime (BULL / BEAR / SIDEWAYS) using BTC 4h data.     Adjusts con, Detect current market regime using BTC as benchmark.                  Uses:, Get thresholds adjusted for current market regime., TCN prediction signal., TCN prediction signal., TCNSignal
 
 ### Community 35 - "Community 35"
-Cohesion: 0.2
-Nodes (9): Main Trading Bot  Orchestrates all components: - Data collection - Model inf, Trading Executor  Executes trades based on model signals: - Order placement (, Trading package initialization., Position Manager  Tracks and manages open positions: - Entry/exit tracking -, # NOTE: pnl_pct here is a fraction (e.g. 0.07 = +7%), NOT a percent., Risk Management Module  Implements all safety controls and risk limits: - Max, # NOTE: current_capital is NOT updated here (M-1 fix)., Telegram Notifications  Send trading alerts and updates via Telegram. (+1 more)
+Cohesion: 0.12
+Nodes (12): Trading package initialization., Position Manager  Tracks and manages open positions: - Entry/exit tracking -, # NOTE: pnl_pct here is a fraction (e.g. 0.07 = +7%), NOT a percent., Risk Management Module  Implements all safety controls and risk limits: - Max, # NOTE: current_capital is NOT updated here (M-1 fix)., Utils package initialization., Logging System for Crypto Trading Bot  Uses loguru for structured, colored log, # NOTE: setup_logging() is called once on startup by src/utils/__init__.py (+4 more)
 
 ### Community 38 - "Community 38"
 Cohesion: 0.33
 Nodes (5): Get list of all open positions., Get list of all open positions., Get list of all open positions., Get list of all open positions., Get list of all open positions.
 
 ### Community 39 - "Community 39"
-Cohesion: 0.13
-Nodes (15): kelly_position_size(), Fractional Kelly criterion position size.      Args:         win_prob       : Ca, Fractional Kelly criterion position size.      Args:         win_prob       : Ca, TCN prediction signal., TCN prediction signal., TCNSignal, _apply_consensus_rules(), BacktestResult (+7 more)
+Cohesion: 0.17
+Nodes (11): OrderResult, Execute paper sell order., Execute paper sell order., Execute live buy order on Binance., Execute paper sell order., Execute paper sell order.          `size` is the USDT exit value to credit bac, Execute live buy order on Binance., Execute live buy order on Binance.          L-4 FIX: Removed dead `quantity = (+3 more)
 
 ### Community 40 - "Community 40"
 Cohesion: 0.05
@@ -278,8 +288,8 @@ Cohesion: 0.21
 Nodes (10): main(), Trading Bot Entry Point  Main entry point for running the crypto trading bot., Initial setup for the bot., setup(), fetch_training_data(), main(), Hybrid ML Model Training Script (XGBoost + CatBoost)  Train the hybrid model w, Fetch training data from database and API. (+2 more)
 
 ### Community 48 - "Community 48"
-Cohesion: 0.24
-Nodes (7): BacktestEngine, main(), Load and prepare historical data., V5 Backtesting engine — connected to the live ConsensusEnsemble logic.      Uses, Calculate performance metrics., Backtesting engine for strategy validation.          Features:     - Historic, Initialize backtest engine.
+Cohesion: 0.12
+Nodes (19): _apply_consensus_rules(), BacktestEngine, BacktestResult, _eval_ml(), _eval_ta(), _eval_tcn(), main(), Backtesting Engine — V5 (Ensemble-Connected)  ARCHITECTURE CHANGE (V5):     Prev (+11 more)
 
 ### Community 49 - "Community 49"
 Cohesion: 0.18
@@ -291,23 +301,23 @@ Nodes (9): _full_exit(), _make_executor(), _partial_exit(), Unit tests for Tradi
 
 ### Community 51 - "Community 51"
 Cohesion: 0.17
-Nodes (9): Open a new position.                  Args:             coin: Trading pair, Open a new position.                  Args:             coin: Trading pair, Utils package initialization., log_trade(), Logging System for Crypto Trading Bot  Uses loguru for structured, colored log, # NOTE: setup_logging() is called once on startup by src/utils/__init__.py, Configure the logging system.     Safe to call multiple times — only initialize, Log a trade with structured data.          Args:         action: BUY, SELL, S (+1 more)
+Nodes (6): Tier 2 when ML and TCN both strong buy., Tier 0 when TCN signal is 'sell', even if TCN confidence >= strong., Tier 3 when ML + TCN strong buy and TA structural >= 0.55., Tier 1 when ML >= ml_high and TCN not opposing (not strong sell)., Tier 0 when ML >= ml_high but TCN is strong sell (opposing)., TestConsensusEnsembleTier
 
 ### Community 52 - "Community 52"
-Cohesion: 0.67
-Nodes (3): augment_sequences(), Data augmentation for time series sequences.          Techniques:     1. Gaus, Data augmentation for time series sequences.          Techniques:     1. Gaus
+Cohesion: 0.25
+Nodes (4): augment_sequences(), PyTorch TCN (Temporal Convolutional Network) Model — V5 (Regularized Filter), Data augmentation for time series sequences.          Techniques:     1. Gaus, Data augmentation for time series sequences.          Techniques:     1. Gaus
 
 ### Community 55 - "Community 55"
-Cohesion: 0.1
-Nodes (17): Close a position (fully or partially).                  Args:             tra, Close a position (fully or partially).                  Args:             tra, Check a position for exit conditions.                  Args:             trad, Check a position for exit conditions.                  Args:             trad, Check a position for exit conditions.                  Args:             trad, Check a position for exit conditions.                  Args:             trad, Check all positions against current prices.                  Args:, Check all positions against current prices.                  Args: (+9 more)
+Cohesion: 0.09
+Nodes (19): Close a position (fully or partially).                  Args:             tra, Close a position (fully or partially).                  Args:             tra, Check a position for exit conditions.                  Args:             trad, Check a position for exit conditions.                  Args:             trad, Check a position for exit conditions.                  Args:             trad, Check a position for exit conditions.                  Args:             trad, Check all positions against current prices.                  Args:, Check all positions against current prices.                  Args: (+11 more)
 
 ### Community 56 - "Community 56"
 Cohesion: 0.21
 Nodes (5): _make_tracker(), At neutral win rates (0.5) ML has the highest base weight., Build a tracker with a temp file and empty state — no disk I/O on init., TestRecordPrediction, TestWeightAdjustment
 
 ### Community 57 - "Community 57"
-Cohesion: 0.14
-Nodes (13): Model Evaluation Script  Comprehensive testing of all three models: - TA Anal, Test ensemble consensus., Test feature engineering., Check if model files exist and are valid., Test TA analyzer on live data., Test XGBoost model predictions., Test TCN model predictions., test_ensemble() (+5 more)
+Cohesion: 0.2
+Nodes (8): Prepare sequence from dataframe., Prepare sequence from dataframe., Prepare sequence from dataframe., Engineer all 19 TCN features from raw OHLCV data.                  Features: r, Engineer all 19 TCN features from raw OHLCV data.                  Features: r, Generate prediction signal.                  Args:             symbol_or_df:, Generate prediction signal.                  Args:             symbol_or_df:, Generate prediction signal.                  Args:             symbol_or_df:
 
 ### Community 58 - "Community 58"
 Cohesion: 0.22
@@ -318,8 +328,8 @@ Cohesion: 0.23
 Nodes (7): Ensure that sync_state() never manually zeros risk_manager.daily_pnl     or risk, Return (mock_rm, executor) after one sync_state() call where the DB         bala, When balance differs > $0.01, _sync_with_database must be called., sync_state() must NOT directly assign daily_pnl = 0.0.         We detect this by, sync_state() must NOT directly set _total_risk = 0.0., Balance difference <= $0.01 must NOT trigger a sync (no load from DB)., TestSyncStateDoesNotWipeRiskState
 
 ### Community 60 - "Community 60"
-Cohesion: 0.2
-Nodes (6): MultiHeadAttention, Multi-head self-attention for temporal sequences.          Allows the model to, Temporal Convolutional Network with Multi-Head Attention.          Architectur, Temporal block with dilated causal convolution.          Components:     - Tw, TCNWithAttention, TemporalBlock
+Cohesion: 0.28
+Nodes (4): MultiHeadAttention, Multi-head self-attention for temporal sequences.          Allows the model to, Temporal block with dilated causal convolution.          Components:     - Tw, TemporalBlock
 
 ### Community 61 - "Community 61"
 Cohesion: 0.24
@@ -334,20 +344,20 @@ Cohesion: 0.22
 Nodes (6): Get current risk status., Get current risk status., Get current risk status., Initialize risk manager., Sync state with database., Sync state with database.          H-4 FIX: Results are cached for 30 seconds.
 
 ### Community 64 - "Community 64"
-Cohesion: 0.25
-Nodes (7): Control Panel: Hard-Reset the Bot's Paper State     Cancels all open trades and, reset_bot_state(), Save bot state to DB ledger and JSON backup.      Args:         paper_balance, save_state(), Monitor all open positions and handle exits.                  Returns:, Monitor all open positions and handle exits.                  Returns:, Monitor all open positions and handle exits.          For each triggered exit
+Cohesion: 0.22
+Nodes (6): Unit tests for PositionManager.check_position() — covers:    - Stop loss trigger, Verify that _load_open_positions() captures the old TP value BEFORE     overwrit, Verify that _load_open_positions() captures the old TP value BEFORE     overwrit, When a stale TP2 <= TP1 is found, the warning must include the OLD TP         in, test_close_position_accumulates_partial_pnl(), TestTPMigrationLog
 
 ### Community 65 - "Community 65"
-Cohesion: 0.36
+Cohesion: 0.38
 Nodes (6): get_data_from_database(), main(), Ensemble Model Backtest Script - SPOT TRADING (BUY-ONLY)  Tests the actual TA,, Get historical data from SQLite database., Run SPOT TRADING backtest (BUY-ONLY).          This simulates real spot tradin, run_spot_backtest()
 
 ### Community 66 - "Community 66"
-Cohesion: 0.25
-Nodes (7): str, ExecutionMode, Execute live sell order on Binance., Execute live sell order on Binance., Execute live sell order on Binance., Result of a risk check., RiskCheck
+Cohesion: 0.2
+Nodes (11): BaseModel, ResetRequest, ExitReason, Trade status enumeration., Exit reason enumeration., TradeStatus, Enum, str (+3 more)
 
 ### Community 68 - "Community 68"
-Cohesion: 0.13
-Nodes (21): Base, BaseModel, ResetRequest, BotState, DailyPerformance, Indicator, ModelPerformance, ModelPrediction (+13 more)
+Cohesion: 0.18
+Nodes (14): Base, BotState, DailyPerformance, Indicator, ModelPerformance, ModelPrediction, PriceData, Database Models and Connection Manager  Uses SQLAlchemy with async support for (+6 more)
 
 ### Community 69 - "Community 69"
 Cohesion: 0.5
@@ -382,28 +392,68 @@ Cohesion: 0.33
 Nodes (5): Return a standardised HOLD signal with reason., Return a standardised HOLD signal with reason., Return a standardised HOLD signal with reason., log_signal(), Log a signal decision with full details.
 
 ### Community 77 - "Community 77"
-Cohesion: 0.4
-Nodes (4): MLSignal, ML model prediction output., _eval_ml(), Evaluate ML model on a historical dataframe slice.
+Cohesion: 0.25
+Nodes (6): Temporal Convolutional Network with Multi-Head Attention.          Architectur, Temporal Convolutional Network with Multi-Head Attention.          Architectur, Load trained model and scaler., Load trained model and scaler., Load trained model and scaler., TCNWithAttention
+
+### Community 79 - "Community 79"
+Cohesion: 0.25
+Nodes (7): Production wrapper for TCN model.          Handles:     - Model loading/savin, Production wrapper for TCN model.          Handles:     - Model loading/savin, Production wrapper for TCN model.          Handles:     - Model loading/savin, Save trained model and scaler., Save trained model and scaler., Save trained model and scaler., TCNModel
+
+### Community 80 - "Community 80"
+Cohesion: 0.29
+Nodes (5): After the time limit with PnL < 1.5%, position is closed by time stop., After the time limit with PnL < 1.5%, position is closed by time stop., After the time limit with PnL < 1.5%, position is closed by time stop., PnL >= 1.5% → time stop must not fire., PnL >= 1.5% → time stop must not fire.
+
+### Community 81 - "Community 81"
+Cohesion: 0.5
+Nodes (3): Set timeframe and adjust sequence length., Set timeframe and adjust sequence length., Set timeframe and adjust sequence length.
+
+### Community 82 - "Community 82"
+Cohesion: 0.5
+Nodes (3): Analyze sequence pattern for interpretability., Analyze sequence pattern for interpretability., Analyze sequence pattern for interpretability.
+
+### Community 83 - "Community 83"
+Cohesion: 0.5
+Nodes (3): get_daily_stats(), Daily Stats Report - CLI tool for VPS  View trading bot performance without a, Generate daily stats report.
+
+### Community 84 - "Community 84"
+Cohesion: 0.5
+Nodes (3): Small position whose highest_price >= TP1 must get a trailing_stop         set t, Small position whose highest_price >= TP1 must get a trailing_stop         set t, Small position whose highest_price >= TP1 must get a trailing_stop         set t
+
+### Community 85 - "Community 85"
+Cohesion: 0.5
+Nodes (3): Price never reached TP1 — no tight trail should activate., Price never reached TP1 — no tight trail should activate., Price never reached TP1 — no tight trail should activate.
+
+### Community 86 - "Community 86"
+Cohesion: 0.5
+Nodes (3): If highest_price somehow drops, the trailing stop must not be lowered., If highest_price somehow drops, the trailing stop must not be lowered., If highest_price somehow drops, the trailing stop must not be lowered.
+
+### Community 87 - "Community 87"
+Cohesion: 0.5
+Nodes (3): When current_price <= trailing_stop, action must be 'trailing_stop'., When current_price <= trailing_stop, action must be 'trailing_stop'., When current_price <= trailing_stop, action must be 'trailing_stop'.
+
+### Community 88 - "Community 88"
+Cohesion: 0.5
+Nodes (3): Standard trail doesn't activate until gain >= 2%., Standard trail doesn't activate until gain >= 2%., Standard trail doesn't activate until gain >= 2%.
 
 ## Knowledge Gaps
-- **530 isolated node(s):** `Detect 6 high-reliability candlestick patterns on the last 3 candles.`, `ADX: 0-100. Above 25 = trending. Above 40 = strong trend.`, `Bullish divergence:  price makes lower low BUT rsi makes higher low  → reversal`, `Calculate VWAP for the current session (resets each day).     Also returns dista`, `Checks the last 3 daily candles to determine macro bias.     Returns: bullish /` (+525 more)
+- **535 isolated node(s):** `Detect 6 high-reliability candlestick patterns on the last 3 candles.`, `ADX: 0-100. Above 25 = trending. Above 40 = strong trend.`, `Bullish divergence:  price makes lower low BUT rsi makes higher low  → reversal`, `Calculate VWAP for the current session (resets each day).     Also returns dista`, `Checks the last 3 daily candles to determine macro bias.     Returns: bullish /` (+530 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **10 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `PositionManager` connect `Community 1` to `Community 0`, `Community 35`, `Community 68`, `Community 67`, `Community 38`, `Community 75`, `Community 46`, `Community 50`, `Community 51`, `Community 18`, `Community 55`, `Community 59`?**
-  _High betweenness centrality (0.115) - this node is a cross-community bridge._
 - **Why does `RiskManager` connect `Community 70` to `Community 35`, `Community 4`, `Community 69`, `Community 71`, `Community 72`, `Community 73`, `Community 42`, `Community 74`, `Community 40`, `Community 44`, `Community 58`, `Community 63`?**
-  _High betweenness centrality (0.111) - this node is a cross-community bridge._
-- **Why does `Position` connect `Community 1` to `Community 0`, `Community 67`, `Community 35`, `Community 68`, `Community 75`, `Community 50`, `Community 51`, `Community 18`, `Community 59`?**
-  _High betweenness centrality (0.099) - this node is a cross-community bridge._
+  _High betweenness centrality (0.122) - this node is a cross-community bridge._
+- **Why does `PositionManager` connect `Community 1` to `Community 0`, `Community 64`, `Community 66`, `Community 35`, `Community 67`, `Community 38`, `Community 9`, `Community 75`, `Community 46`, `Community 50`, `Community 18`, `Community 55`, `Community 59`?**
+  _High betweenness centrality (0.120) - this node is a cross-community bridge._
+- **Why does `ConsensusEnsemble` connect `Community 2` to `Community 33`, `Community 34`, `Community 43`, `Community 76`, `Community 12`, `Community 78`, `Community 48`, `Community 51`, `Community 30`, `Community 56`, `Community 61`, `Community 62`?**
+  _High betweenness centrality (0.108) - this node is a cross-community bridge._
+- **Are the 13 inferred relationships involving `ConsensusEnsemble` (e.g. with `TASignal` and `MLSignal`) actually correct?**
+  _`ConsensusEnsemble` has 13 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 9 inferred relationships involving `RiskManager` (e.g. with `TestPriceLevels` and `TestTrailingStop`) actually correct?**
   _`RiskManager` has 9 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 2 inferred relationships involving `TestCheckPosition` (e.g. with `Position` and `PositionManager`) actually correct?**
   _`TestCheckPosition` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `Detect 6 high-reliability candlestick patterns on the last 3 candles.`, `ADX: 0-100. Above 25 = trending. Above 40 = strong trend.`, `Bullish divergence:  price makes lower low BUT rsi makes higher low  → reversal` to the rest of the system?**
-  _530 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `Community 0` be split into smaller, more focused modules?**
-  _Cohesion score 0.05 - nodes in this community are weakly interconnected._
+  _535 weakly-connected nodes found - possible documentation gaps or missing edges._

@@ -608,7 +608,7 @@ class ConsensusEnsemble:
 
         Returns (tier, take_profit_pct). tier=0 means no signal.
         """
-        tcn_bullish = tcn_signal == "buy" or tcn_conf >= tcn_strong
+        tcn_bullish = tcn_signal == "buy"
 
         # Tier 3: All models agree at strong threshold
         if (ml_conf >= ml_strong and tcn_conf >= tcn_strong

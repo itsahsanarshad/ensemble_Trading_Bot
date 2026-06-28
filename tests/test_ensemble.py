@@ -320,5 +320,64 @@ class TestSaveLoad(unittest.TestCase):
             os.unlink(path)
 
 
+# ============================================================================
+# 6. ConsensusEnsemble Tier Classification Tests
+# ============================================================================
+
+from src.models.ensemble import ConsensusEnsemble
+
+class TestConsensusEnsembleTier(unittest.TestCase):
+
+    def setUp(self):
+        with patch("src.models.ensemble.ModelPerformanceTracker.load"), \
+             patch("src.models.ensemble.ConfidenceCalibrator.load"):
+            self.ensemble = ConsensusEnsemble()
+
+    def test_classify_tier_strong_consensus_buy(self):
+        """Tier 2 when ML and TCN both strong buy."""
+        tier, tp = self.ensemble._classify_tier(
+            ml_conf=0.65, tcn_conf=0.65, ta_conf=0.50,
+            ml_signal="buy", tcn_signal="buy",
+            ml_strong=0.62, tcn_strong=0.62, ml_high=0.70
+        )
+        self.assertEqual(tier, 2)
+
+    def test_classify_tier_strong_consensus_conflict_sell(self):
+        """Tier 0 when TCN signal is 'sell', even if TCN confidence >= strong."""
+        tier, tp = self.ensemble._classify_tier(
+            ml_conf=0.65, tcn_conf=0.71, ta_conf=0.50,
+            ml_signal="buy", tcn_signal="sell",
+            ml_strong=0.62, tcn_strong=0.62, ml_high=0.70
+        )
+        self.assertEqual(tier, 0)
+
+    def test_classify_tier_tier3_all_agree_buy(self):
+        """Tier 3 when ML + TCN strong buy and TA structural >= 0.55."""
+        tier, tp = self.ensemble._classify_tier(
+            ml_conf=0.65, tcn_conf=0.65, ta_conf=0.58,
+            ml_signal="buy", tcn_signal="buy",
+            ml_strong=0.62, tcn_strong=0.62, ml_high=0.70
+        )
+        self.assertEqual(tier, 3)
+
+    def test_classify_tier_tier1_ml_only_not_opposing(self):
+        """Tier 1 when ML >= ml_high and TCN not opposing (not strong sell)."""
+        tier, tp = self.ensemble._classify_tier(
+            ml_conf=0.72, tcn_conf=0.40, ta_conf=0.50,
+            ml_signal="buy", tcn_signal="hold",
+            ml_strong=0.62, tcn_strong=0.62, ml_high=0.70
+        )
+        self.assertEqual(tier, 1)
+
+    def test_classify_tier_tier1_ml_only_opposing_sell(self):
+        """Tier 0 when ML >= ml_high but TCN is strong sell (opposing)."""
+        tier, tp = self.ensemble._classify_tier(
+            ml_conf=0.72, tcn_conf=0.65, ta_conf=0.50,
+            ml_signal="buy", tcn_signal="sell",
+            ml_strong=0.62, tcn_strong=0.62, ml_high=0.70
+        )
+        self.assertEqual(tier, 0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -149,7 +149,7 @@ def _apply_consensus_rules(
     tcn_s = thresh["tcn_strong"]
     ml_h  = thresh["ml_high"]
     pmult = thresh["pos_mult"]
-    tcn_ok = tcn_result.signal == "buy" or tcn_conf >= tcn_s
+    tcn_ok = tcn_result.signal == "buy" if tcn_result else False
 
     # Tier 3
     if ml_conf >= ml_s and tcn_conf >= tcn_s and ta_conf >= 0.55 and tcn_ok:
